@@ -51,6 +51,12 @@ Data Flows:
   1. **Device Anomaly Detection**: Analyzes per-device behavior (connections, bytes, DNS patterns)
   2. **Domain Risk Scoring**: Identifies suspicious domains (DGA, phishing, C2)
 - Uses pre-trained ONNX/TFLite models for inference
+- **Threat Intelligence Integration**: Cross-references domains/IPs against known IOCs from:
+  - AlienVault OTX (Open Threat Exchange)
+  - abuse.ch URLhaus (malicious URLs)
+  - abuse.ch Feodo Tracker (botnet C2 servers)
+  - PhishTank (verified phishing sites)
+- Automatic risk score boosting on threat intel matches
 - Writes anomaly events as structured logs to Loki
 
 ### Automated Response
@@ -173,6 +179,7 @@ See `docs/integration-orion-dns-ha.md` for detailed instructions on configuring 
 
 - ✅ **Passive IDS**: Suricata on mirrored traffic (no network impact)
 - ✅ **AI-Powered Detection**: Device anomaly & domain risk scoring on AI Hat
+- ✅ **Threat Intelligence**: Real-time IOC feeds from AlienVault OTX, URLhaus, Feodo, PhishTank
 - ✅ **Centralized Logging**: Loki stores NSM, DNS, and AI events
 - ✅ **Visual Dashboards**: Grafana for real-time security visibility
 - ✅ **Automated Response**: Policy-based domain blocking via Pi-hole

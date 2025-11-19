@@ -438,6 +438,118 @@ Client for Pi-hole's HTTP API.
 - Retries with exponential backoff
 - Logs all API calls and failures
 
+### threat_intel.py
+
+Threat intelligence feed integration for enhanced detection.
+
+**Purpose**: Cross-reference detected domains/IPs against known malicious indicators from public threat feeds.
+
+**Key Classes**:
+
+- `ThreatIntelligenceService`:
+  - Main service class for threat intel integration
+  - `refresh_feeds()`: Fetch latest IOCs from all sources
+  - `check_domain(domain) -> Optional[ThreatIndicator]`
+  - `check_ip(ip) -> Optional[ThreatIndicator]`
+  
+- `ThreatIntelligenceCache`:
+  - SQLite-backed cache for fast IOC lookups
+  - Persistent storage across container restarts
+  - Automatic cleanup of stale indicators
+
+- `ThreatFeedFetcher`:
+  - Async HTTP fetcher for multiple threat feeds
+  - Parallel fetching for efficiency
+  - Error handling with graceful degradation
+
+**Supported Threat Feeds**:
+
+1. **AlienVault OTX** (Open Threat Exchange)
+   - Comprehensive IOC database
+   - Optional API key for higher rate limits
+   - Domains, IPs, URLs from community pulses
+   
+2. **abuse.ch URLhaus**
+   - Malware distribution URLs
+   - High-confidence malicious domains
+   - Updated multiple times per day
+   
+3. **abuse.ch Feodo Tracker**
+   - Botnet C2 server IPs
+   - Active C2 infrastructure tracking
+   - Very high confidence (>95%)
+   
+4. **PhishTank**
+   - Verified phishing sites
+   - Community-validated phishing domains
+   - Real-time updates
+
+**Integration with Detection**:
+
+When a domain is being scored:
+1. Check if domain exists in threat intel cache
+2. If match found:
+   - Log the threat intel source and type
+   - Boost risk score by configurable amount (default: +0.3)
+   - Add threat metadata to detection results
+3. If score exceeds threshold, domain is blocked
+
+**Example Result with Threat Intel**:
+
+```json
+{
+  "domain": "malicious.example.com",
+  "risk_score": 0.92,
+  "features": {
+    "domain_length": 21,
+    "domain_entropy": 3.8,
+    "threat_intel_match": {
+      "source": "URLhaus",
+      "threat_type": "malware_url",
+      "confidence": 0.9,
+      "description": "Malware distribution"
+    }
+  },
+  "action": "BLOCK",
+  "reason": "Risk score 0.92 >= threshold 0.85 + Threat intel match (URLhaus)"
+}
+```
+
+**Configuration**:
+
+```bash
+# Enable/disable threat intelligence
+THREAT_INTEL_ENABLE=true
+
+# AlienVault OTX API key (optional but recommended)
+# Get free key at: https://otx.alienvault.com/
+THREAT_INTEL_OTX_API_KEY=your-api-key-here
+
+# Feed refresh interval (hours)
+THREAT_INTEL_REFRESH_HOURS=6
+
+# Risk score boost on IOC match (0.0-1.0)
+THREAT_INTEL_IOC_SCORE_BOOST=0.3
+
+# Cache cleanup interval (days)
+THREAT_INTEL_CLEANUP_DAYS=30
+```
+
+**Refresh Strategy**:
+
+- Initial refresh on service startup
+- Periodic refresh every N hours (configurable)
+- Automatic refresh before each detection run
+- All feeds fetched concurrently (async)
+- Deduplication by IOC value (keeps highest confidence)
+
+**Performance**:
+
+- SQLite cache provides sub-millisecond lookups
+- Feed refresh takes 10-30 seconds (all sources)
+- Cache size: ~50-100K indicators (~10-20MB)
+- Minimal impact on detection latency (<1ms per domain)
+
 ---
 
 ## Execution Modes
