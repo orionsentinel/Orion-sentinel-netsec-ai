@@ -19,6 +19,7 @@ from orion_ai.config import get_config
 from orion_ai.pipelines import DeviceAnomalyPipeline, DomainRiskPipeline
 from orion_ai.http_server import run_server
 from orion_ai.threat_intel import ThreatIntelligenceService
+from orion_ai.data_collector import DataCollector
 import asyncio
 
 
@@ -187,6 +188,102 @@ def run_oneshot_mode(start: str, end: str, pipeline: str):
     logger.info("One-shot detection complete")
 
 
+def run_collect_mode(interval: int, output_dir: str = None):
+    """
+    Run data collection mode for baseline training.
+    
+    Collects network/DNS data without running detection models.
+    Use this mode for 7-30 days BEFORE training models.
+    
+    Args:
+        interval: Collection interval in minutes
+        output_dir: Directory to store collected data (default: /data/training)
+    """
+    logger = logging.getLogger(__name__)
+    logger.info("="*80)
+    logger.info("DATA COLLECTION MODE - Building Training Baseline")
+    logger.info("="*80)
+    logger.info(f"Collection interval: {interval} minutes")
+    logger.info(f"Output directory: {output_dir or '/data/training'}")
+    logger.info("="*80)
+    logger.info("")
+    logger.info("IMPORTANT: Run this mode for 7-30 days to collect baseline data")
+    logger.info("          before training your custom models.")
+    logger.info("="*80)
+    
+    # Initialize data collector
+    collector = DataCollector(output_dir=output_dir)
+    
+    # Main loop
+    iteration = 0
+    while True:
+        iteration += 1
+        logger.info(f"{'='*80}")
+        logger.info(f"Collection iteration {iteration} started at {datetime.now()}")
+        logger.info(f"{'='*80}")
+        
+        try:
+            # Collect device features
+            logger.info("Collecting device behavioral data...")
+            device_count = collector.collect_device_data()
+            logger.info(f"✓ Collected {device_count} device records")
+            
+        except Exception as e:
+            logger.error(f"Device data collection failed: {e}", exc_info=True)
+        
+        try:
+            # Collect domain features
+            logger.info("Collecting domain features...")
+            domain_count = collector.collect_domain_data()
+            logger.info(f"✓ Collected {domain_count} domain records")
+            
+        except Exception as e:
+            logger.error(f"Domain data collection failed: {e}", exc_info=True)
+        
+        try:
+            # Collect raw logs (optional, for debugging)
+            logger.info("Collecting raw logs...")
+            raw_counts = collector.collect_raw_logs()
+            logger.info(
+                f"✓ Collected {raw_counts.get('suricata', 0)} Suricata events, "
+                f"{raw_counts.get('dns', 0)} DNS events"
+            )
+            
+        except Exception as e:
+            logger.error(f"Raw log collection failed: {e}", exc_info=True)
+        
+        # Show collection statistics
+        stats = collector.get_collection_stats()
+        logger.info("")
+        logger.info("Collection Statistics:")
+        logger.info(f"  Device feature files: {stats['device_files']}")
+        logger.info(f"  Domain feature files: {stats['domain_files']}")
+        logger.info(f"  Raw log files: {stats['raw_files']}")
+        logger.info(f"  Total size: {stats['total_size_mb']:.2f} MB")
+        if stats.get('collection_days'):
+            logger.info(f"  Collection period: {stats['collection_days']} days")
+            logger.info(f"  Date range: {stats['oldest_data']} to {stats['newest_data']}")
+            
+            # Provide guidance on when to train
+            days = stats['collection_days']
+            if days < 7:
+                logger.info(f"  ⚠ Collect {7 - days} more days before training (minimum 7 days)")
+            elif days < 30:
+                logger.info(f"  ✓ Ready for training! ({days} days collected)")
+                logger.info(f"    Recommended: Collect {30 - days} more days for better baseline")
+            else:
+                logger.info(f"  ✓ Excellent baseline! ({days} days collected)")
+                logger.info(f"    Ready to train production models")
+        
+        logger.info(f"{'='*80}")
+        logger.info(f"Collection iteration {iteration} complete")
+        logger.info(f"Next collection in {interval} minutes")
+        logger.info(f"{'='*80}")
+        
+        # Sleep until next iteration
+        time.sleep(interval * 60)
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -195,9 +292,9 @@ def main():
     
     parser.add_argument(
         "--mode",
-        choices=["batch", "api", "oneshot"],
+        choices=["batch", "api", "oneshot", "collect"],
         default="batch",
-        help="Execution mode (default: batch)"
+        help="Execution mode (default: batch). Use 'collect' to gather training data."
     )
     
     parser.add_argument(
@@ -242,6 +339,13 @@ def main():
         help="Log level (default: from config)"
     )
     
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Collect mode output directory (default: /data/training)"
+    )
+    
     args = parser.parse_args()
     
     # Load configuration
@@ -261,7 +365,11 @@ def main():
     
     # Run in selected mode
     try:
-        if args.mode == "batch":
+        if args.mode == "collect":
+            interval = args.interval or config.detection.batch_interval
+            run_collect_mode(interval, output_dir=args.output_dir)
+        
+        elif args.mode == "batch":
             interval = args.interval or config.detection.batch_interval
             run_batch_mode(interval)
         
