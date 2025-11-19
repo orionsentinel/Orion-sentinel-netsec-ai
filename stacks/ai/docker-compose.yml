@@ -58,6 +58,13 @@ services:
       # Persistent storage for threat intelligence cache
       - threat-intel-cache:/var/lib/orion-ai
     
+    # AI Hat device access (Hailo-8L accelerator)
+    # Uncomment if you have the AI Hat installed
+    # devices:
+    #   - /dev/hailo0:/dev/hailo0
+    # cap_add:
+    #   - SYS_RAWIO
+    
     # Optional: Expose HTTP API
     ports:
       - "${AI_API_PORT:-8080}:8080"

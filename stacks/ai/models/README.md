@@ -26,6 +26,7 @@ Models should be in **ONNX** format (recommended) or **TFLite** format.
 - More flexible, supports most frameworks
 - Better tooling and debugging
 - Use `onnxruntime` for inference
+- **Supports AI Hat acceleration** with Hailo execution provider
 
 ### TFLite (Alternative)
 - Smaller file size
@@ -40,34 +41,85 @@ Models should be in **ONNX** format (recommended) or **TFLite** format.
 2. **Use open-source models** from research/community (may require adaptation)
 3. **Start with dummy/placeholder models** for testing infrastructure
 
-## Model Training (External)
+**IMPORTANT**: Models must be trained on **your network's baseline** behavior. Generic models will have high false positive rates.
 
-For best results, train models on data from your own network:
+## Model Training
 
-1. **Collect baseline data** (1-2 weeks of normal operation)
+**See [docs/ai-hat-setup.md](../../../docs/ai-hat-setup.md) for comprehensive training guide.**
+
+Quick overview:
+
+1. **Collect baseline data** (7-30 days of normal operation)
    - Export Suricata flows and DNS queries from Loki
-   - Label normal behavior vs. anomalies (if available)
+   - Use scripts in `/scripts/export_training_data.sh`
 
-2. **Feature engineering**
-   - Use `src/orion_ai/feature_extractor.py` as reference
-   - Extract same features used in production
+2. **Train models** on your network baseline
+   - Use training scripts in `/training/` directory
+   - Train device anomaly model (unsupervised)
+   - Train domain risk model (supervised with threat intel)
 
-3. **Train models** (use Python/Jupyter notebooks separately)
-   - Device anomaly: Unsupervised (autoencoder, isolation forest)
-   - Domain risk: Supervised (use public DGA/phishing datasets)
+3. **Optimize for AI Hat** (optional but recommended)
+   - Quantize to INT8 for 3-4x speedup
+   - Use `/training/quantize_model.py`
 
-4. **Export to ONNX**
-   ```python
-   # PyTorch example
-   import torch
-   torch.onnx.export(model, dummy_input, "device_anomaly.onnx")
-   
-   # TensorFlow example
-   import tf2onnx
-   tf2onnx.convert.from_keras(model, output_path="domain_risk.onnx")
+4. **Validate performance**
+   - Test on validation dataset
+   - Aim for F1 score > 0.75
+
+5. **Deploy**
+   - Copy `.onnx` files to this directory
+   - Update paths in `.env`
+   - Restart AI service
+
+### Example Training Commands
+
+```bash
+# Train device anomaly model
+python training/train_device_model.py \
+  --input training_data/ \
+  --output models/device_anomaly.onnx \
+  --algorithm isolation-forest
+
+# Train domain risk model
+python training/train_domain_model.py \
+  --input training_data/ \
+  --output models/domain_risk.onnx \
+  --algorithm gradient-boosting
+
+# Quantize for AI Hat
+python training/quantize_model.py \
+  --input models/device_anomaly.onnx \
+  --output models/device_anomaly_int8.onnx
+```
+
+## AI Hat Acceleration
+
+The Raspberry Pi AI Hat (Hailo-8L) provides ~13 TOPS of inference acceleration.
+
+### Benefits:
+- **10-20x faster** inference vs CPU
+- **Sub-millisecond** latency per domain
+- **Low power** consumption
+- Can process **1000+ domains/second**
+
+### Requirements:
+1. Install AI Hat hardware on Pi 5
+2. Install Hailo runtime and drivers
+3. Enable device access in docker-compose.yml:
+   ```yaml
+   devices:
+     - /dev/hailo0:/dev/hailo0
+   cap_add:
+     - SYS_RAWIO
    ```
+4. Use quantized models (INT8) for best performance
 
-5. **Place models here** and update paths in `.env`
+### Without AI Hat:
+- Models run on CPU via ONNX Runtime
+- Slower but functional (10-100ms vs 1ms per domain)
+- Fine for small networks (<50 devices)
+
+**See [docs/ai-hat-setup.md](../../../docs/ai-hat-setup.md) for AI Hat setup instructions.**
 
 ## Model Metadata (Recommended)
 
