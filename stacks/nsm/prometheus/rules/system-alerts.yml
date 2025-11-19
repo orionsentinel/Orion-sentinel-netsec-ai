@@ -1,0 +1,334 @@
+# Raspberry Pi Resource and Docker Container Alerting Rules
+# Monitors CPU, memory, filesystem, and Docker container health
+# Designed for Raspberry Pi 5 (ARM64, 8GB RAM) resource constraints
+
+groups:
+  - name: raspberry_pi_resource_alerts
+    interval: 1m
+    rules:
+      # Alert: High CPU usage (load average or CPU utilization)
+      # Monitors 1-minute load average relative to CPU cores
+      - alert: HighCpuUsage
+        expr: |
+          (
+            node_load1{job="node"}
+            /
+            count(node_cpu_seconds_total{job="node", mode="idle"}) by (instance)
+          ) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          component: node
+          alert_type: resource_exhaustion
+          resource: cpu
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: |
+            CPU load on {{ $labels.instance }} is at {{ $value | humanizePercentage }} of capacity.
+            1-minute load average is abnormally high for more than 10 minutes.
+            
+            Possible causes:
+            - Resource-intensive process running
+            - Suricata processing high traffic volume
+            - AI model training/inference
+            - System thrashing due to memory pressure
+            
+            Check top processes and consider scaling or optimization.
+          current_value: "{{ $value | humanizePercentage }}"
+          threshold: "80%"
+          duration: "10m"
+          instance: "{{ $labels.instance }}"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/high-cpu-usage"
+      
+      # Alert: High CPU usage (alternative - actual CPU time)
+      # Based on rate of CPU seconds consumed
+      - alert: HighCpuUtilization
+        expr: |
+          (
+            1 - avg by (instance) (
+              rate(node_cpu_seconds_total{job="node", mode="idle"}[5m])
+            )
+          ) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          component: node
+          alert_type: resource_exhaustion
+          resource: cpu
+        annotations:
+          summary: "High CPU utilization on {{ $labels.instance }}"
+          description: |
+            CPU utilization on {{ $labels.instance }} is {{ $value | humanizePercentage }}.
+            System is spending {{ $value | humanizePercentage }} of CPU time on non-idle tasks.
+            
+            This sustained high usage may impact:
+            - Suricata packet processing (dropped packets)
+            - AI inference latency
+            - Dashboard responsiveness
+          current_value: "{{ $value | humanizePercentage }}"
+          threshold: "80%"
+          duration: "10m"
+          instance: "{{ $labels.instance }}"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/high-cpu-utilization"
+      
+      # Alert: High memory usage (less than 15% available)
+      # Critical for Raspberry Pi with limited RAM
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            node_memory_MemAvailable_bytes{job="node"}
+            /
+            node_memory_MemTotal_bytes{job="node"}
+          ) < 0.15
+        for: 5m
+        labels:
+          severity: warning
+          component: node
+          alert_type: resource_exhaustion
+          resource: memory
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: |
+            Available memory on {{ $labels.instance }} is critically low.
+            Only {{ $value | humanizePercentage }} of memory remains available.
+            Total: {{ with query "node_memory_MemTotal_bytes{instance='" }}{{ . | first | value | humanize1024 }}B{{ end }}
+            Available: {{ with query "node_memory_MemAvailable_bytes{instance='" }}{{ . | first | value | humanize1024 }}B{{ end }}
+            
+            Low memory can cause:
+            - OOM killer terminating processes
+            - System swapping (degraded performance)
+            - Service crashes
+            
+            Raspberry Pi 5 has 8GB RAM - check memory-hungry containers:
+            - Loki (log retention may be too high)
+            - Suricata (ring buffers too large)
+            - AI service (model size or batch size)
+          current_value: "{{ $value | humanizePercentage }} available"
+          threshold: "15% available"
+          duration: "5m"
+          instance: "{{ $labels.instance }}"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/high-memory-usage"
+      
+      # Alert: High filesystem usage on root partition
+      # Prevents disk full scenarios
+      - alert: HighFsUsage
+        expr: |
+          (
+            node_filesystem_avail_bytes{job="node", mountpoint="/", fstype!~"tmpfs|overlay"}
+            /
+            node_filesystem_size_bytes{job="node", mountpoint="/", fstype!~"tmpfs|overlay"}
+          ) < 0.15
+        for: 10m
+        labels:
+          severity: warning
+          component: node
+          alert_type: resource_exhaustion
+          resource: filesystem
+        annotations:
+          summary: "High filesystem usage on {{ $labels.instance }}"
+          description: |
+            Root filesystem on {{ $labels.instance }} is {{ $value | humanizePercentage }} full.
+            Only {{ with query "node_filesystem_avail_bytes{instance='" }}{{ . | first | value | humanize1024 }}B{{ end }} remains available.
+            
+            Disk space consumed by:
+            - Loki log storage (/var/lib/loki)
+            - Docker images and volumes
+            - System logs (/var/log)
+            - Suricata eve.json logs
+            
+            Actions:
+            - Reduce Loki retention period
+            - Clean old Docker images: docker system prune
+            - Rotate/compress logs
+            - Expand storage if microSD card
+          current_value: "{{ $value | humanizePercentage }} available"
+          threshold: "15% available (85% used)"
+          duration: "10m"
+          instance: "{{ $labels.instance }}"
+          mountpoint: "{{ $labels.mountpoint }}"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/high-fs-usage"
+      
+      # Alert: Critical filesystem usage (very low space)
+      - alert: CriticalFsUsage
+        expr: |
+          (
+            node_filesystem_avail_bytes{job="node", mountpoint="/", fstype!~"tmpfs|overlay"}
+            /
+            node_filesystem_size_bytes{job="node", mountpoint="/", fstype!~"tmpfs|overlay"}
+          ) < 0.05
+        for: 1m
+        labels:
+          severity: critical
+          component: node
+          alert_type: resource_exhaustion
+          resource: filesystem
+        annotations:
+          summary: "CRITICAL: Filesystem almost full on {{ $labels.instance }}"
+          description: |
+            Root filesystem on {{ $labels.instance }} is critically low on space.
+            Only {{ $value | humanizePercentage }} ({{ with query "node_filesystem_avail_bytes{instance='" }}{{ . | first | value | humanize1024 }}B{{ end }}) remains.
+            
+            IMMEDIATE ACTIONS REQUIRED:
+            1. Stop log collection: docker-compose stop promtail
+            2. Clean Docker: docker system prune -af --volumes
+            3. Remove old logs: find /var/log -name "*.gz" -mtime +7 -delete
+            4. Check Loki storage and reduce retention
+            
+            System may become unstable if disk fills completely.
+          current_value: "{{ $value | humanizePercentage }} available"
+          threshold: "5% available (95% used)"
+          duration: "1m"
+          instance: "{{ $labels.instance }}"
+          mountpoint: "{{ $labels.mountpoint }}"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/critical-fs-usage"
+
+  - name: docker_container_health_alerts
+    interval: 1m
+    rules:
+      # Alert: Docker container down or restarting frequently
+      # Monitors container state via cAdvisor
+      - alert: DockerContainerDown
+        expr: |
+          up{job="cadvisor"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: cadvisor
+          alert_type: monitoring
+        annotations:
+          summary: "cAdvisor monitoring down on {{ $labels.instance }}"
+          description: |
+            cAdvisor (Docker container metrics exporter) is down on {{ $labels.instance }}.
+            Cannot monitor Docker container health, CPU, or memory usage.
+            
+            Check cAdvisor container status:
+            docker ps | grep cadvisor
+            docker logs cadvisor
+          instance: "{{ $labels.instance }}"
+          job: "{{ $labels.job }}"
+          duration: "5m"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/cadvisor-down"
+      
+      # Alert: Container high memory usage (>90% of limit)
+      - alert: ContainerHighMemory
+        expr: |
+          (
+            container_memory_usage_bytes{job="cadvisor", name!=""}
+            /
+            container_spec_memory_limit_bytes{job="cadvisor", name!=""} > 0
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: docker
+          alert_type: resource_exhaustion
+          resource: container_memory
+        annotations:
+          summary: "Container {{ $labels.name }} high memory usage"
+          description: |
+            Container {{ $labels.name }} on {{ $labels.instance }} is using {{ $value | humanizePercentage }} of its memory limit.
+            
+            Memory usage: {{ with query "container_memory_usage_bytes{name='" }}{{ . | first | value | humanize1024 }}B{{ end }}
+            Memory limit: {{ with query "container_spec_memory_limit_bytes{name='" }}{{ . | first | value | humanize1024 }}B{{ end }}
+            
+            Container may be approaching OOM condition.
+            Consider increasing memory limit or investigating memory leak.
+          container: "{{ $labels.name }}"
+          instance: "{{ $labels.instance }}"
+          current_value: "{{ $value | humanizePercentage }}"
+          threshold: "90%"
+          duration: "5m"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/container-high-memory"
+      
+      # Alert: Container restarting frequently
+      # Indicates crashes or health check failures
+      - alert: ContainerFrequentRestarts
+        expr: |
+          rate(container_last_seen{job="cadvisor", name!=""}[10m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          component: docker
+          alert_type: container_instability
+        annotations:
+          summary: "Container {{ $labels.name }} restarting frequently"
+          description: |
+            Container {{ $labels.name }} on {{ $labels.instance }} is restarting frequently.
+            
+            Possible causes:
+            - Application crashes
+            - Health check failures
+            - OOM kills
+            - Configuration errors
+            
+            Check container logs:
+            docker logs {{ $labels.name }}
+            
+            Check restart count:
+            docker inspect {{ $labels.name }} | grep RestartCount
+          container: "{{ $labels.name }}"
+          instance: "{{ $labels.instance }}"
+          duration: "5m"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/container-frequent-restarts"
+      
+      # Alert: Critical containers not running
+      # Monitors essential Orion Sentinel services
+      - alert: CriticalContainerMissing
+        expr: |
+          absent(container_memory_usage_bytes{job="cadvisor", name=~"suricata|loki|grafana|promtail|orion-ai"})
+        for: 2m
+        labels:
+          severity: critical
+          component: docker
+          alert_type: service_down
+        annotations:
+          summary: "Critical container missing on {{ $labels.instance }}"
+          description: |
+            One or more critical Orion Sentinel containers are not running.
+            
+            Expected containers:
+            - suricata (IDS engine)
+            - loki (log aggregation)
+            - grafana (dashboards)
+            - promtail (log shipping)
+            - orion-ai (AI threat detection)
+            
+            Check Docker Compose status:
+            cd /opt/orion-sentinel/stacks/nsm && docker-compose ps
+            
+            Restart if needed:
+            docker-compose up -d
+          instance: "{{ $labels.instance }}"
+          duration: "2m"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/critical-container-missing"
+      
+      # Alert: High container CPU usage
+      - alert: ContainerHighCpu
+        expr: |
+          rate(container_cpu_usage_seconds_total{job="cadvisor", name!=""}[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          component: docker
+          alert_type: resource_exhaustion
+          resource: container_cpu
+        annotations:
+          summary: "Container {{ $labels.name }} high CPU usage"
+          description: |
+            Container {{ $labels.name }} on {{ $labels.instance }} is using {{ $value | humanizePercentage }} CPU.
+            
+            High CPU containers:
+            - suricata: May need tuning or traffic is very high
+            - orion-ai: Model inference may be CPU-bound (use AI Hat)
+            - loki: High query load or ingestion rate
+            
+            Consider:
+            - Optimizing container configuration
+            - Scaling resources
+            - Investigating workload patterns
+          container: "{{ $labels.name }}"
+          instance: "{{ $labels.instance }}"
+          current_value: "{{ $value | humanizePercentage }}"
+          threshold: "80%"
+          duration: "10m"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/container-high-cpu"

@@ -1,0 +1,160 @@
+# DNS Traffic Recording Rules for Pi-hole Monitoring
+# These rules pre-aggregate DNS metrics for efficient querying in Grafana
+# Assumes Pi-hole exporter provides metrics like pihole_dns_queries_total{type="success"|"blocked"}
+
+groups:
+  - name: dns_traffic_recording_rules
+    interval: 30s
+    rules:
+      # Total DNS queries per instance (5-minute rate)
+      # Aggregates all DNS query types (success + blocked + other)
+      - record: instance:dns_queries_total:rate5m
+        expr: |
+          sum by (instance) (
+            rate(pihole_dns_queries_total[5m])
+          )
+        labels:
+          metric_type: "dns_queries_total"
+      
+      # Successful DNS queries per instance (5-minute rate)
+      # Only queries that were resolved (not blocked)
+      - record: instance:dns_queries_success:rate5m
+        expr: |
+          sum by (instance) (
+            rate(pihole_dns_queries_total{type="success"}[5m])
+          )
+        labels:
+          metric_type: "dns_queries_success"
+      
+      # Blocked DNS queries per instance (5-minute rate)
+      # Queries blocked by Pi-hole (ads, malware, etc.)
+      - record: instance:dns_queries_blocked:rate5m
+        expr: |
+          sum by (instance) (
+            rate(pihole_dns_queries_total{type="blocked"}[5m])
+          )
+        labels:
+          metric_type: "dns_queries_blocked"
+      
+      # DNS block rate per instance (percentage)
+      # Shows effectiveness of DNS filtering
+      # Formula: (blocked / total) * 100
+      - record: instance:dns_block_rate:ratio
+        expr: |
+          (
+            sum by (instance) (
+              rate(pihole_dns_queries_total{type="blocked"}[5m])
+            )
+            /
+            sum by (instance) (
+              rate(pihole_dns_queries_total[5m])
+            )
+          ) * 100
+        labels:
+          metric_type: "dns_block_rate"
+          unit: "percent"
+      
+      # DNS queries per client IP (5-minute rate)
+      # Identifies top talkers on the network
+      - record: client:dns_queries_total:rate5m
+        expr: |
+          sum by (instance, client) (
+            rate(pihole_dns_queries_total[5m])
+          )
+        labels:
+          metric_type: "dns_queries_total"
+          aggregation: "per_client"
+      
+      # Blocked queries per client IP (5-minute rate)
+      # Identifies potentially compromised or ad-heavy clients
+      - record: client:dns_queries_blocked:rate5m
+        expr: |
+          sum by (instance, client) (
+            rate(pihole_dns_queries_total{type="blocked"}[5m])
+          )
+        labels:
+          metric_type: "dns_queries_blocked"
+          aggregation: "per_client"
+      
+      # Block rate per client IP (percentage)
+      # High values may indicate malware infection
+      - record: client:dns_block_rate:ratio
+        expr: |
+          (
+            sum by (instance, client) (
+              rate(pihole_dns_queries_total{type="blocked"}[5m])
+            )
+            /
+            sum by (instance, client) (
+              rate(pihole_dns_queries_total[5m])
+            )
+          ) * 100
+        labels:
+          metric_type: "dns_block_rate"
+          unit: "percent"
+          aggregation: "per_client"
+
+  - name: dns_cluster_recording_rules
+    interval: 1m
+    rules:
+      # Cluster-wide total DNS queries (5-minute rate)
+      # Aggregates across all Pi-hole instances
+      - record: cluster:dns_queries_total:rate5m
+        expr: |
+          sum(
+            rate(pihole_dns_queries_total[5m])
+          )
+        labels:
+          metric_type: "dns_queries_total"
+          aggregation: "cluster"
+      
+      # Cluster-wide blocked queries (5-minute rate)
+      - record: cluster:dns_queries_blocked:rate5m
+        expr: |
+          sum(
+            rate(pihole_dns_queries_total{type="blocked"}[5m])
+          )
+        labels:
+          metric_type: "dns_queries_blocked"
+          aggregation: "cluster"
+      
+      # Cluster-wide block rate (percentage)
+      - record: cluster:dns_block_rate:ratio
+        expr: |
+          (
+            sum(
+              rate(pihole_dns_queries_total{type="blocked"}[5m])
+            )
+            /
+            sum(
+              rate(pihole_dns_queries_total[5m])
+            )
+          ) * 100
+        labels:
+          metric_type: "dns_block_rate"
+          unit: "percent"
+          aggregation: "cluster"
+      
+      # Top 10 clients by query volume (5-minute rate)
+      - record: topk:dns_queries_per_client:rate5m
+        expr: |
+          topk(10,
+            sum by (instance, client) (
+              rate(pihole_dns_queries_total[5m])
+            )
+          )
+        labels:
+          metric_type: "dns_queries_total"
+          aggregation: "top10_clients"
+      
+      # Top 10 clients by blocked queries (5-minute rate)
+      - record: topk:dns_blocked_per_client:rate5m
+        expr: |
+          topk(10,
+            sum by (instance, client) (
+              rate(pihole_dns_queries_total{type="blocked"}[5m])
+            )
+          )
+        labels:
+          metric_type: "dns_queries_blocked"
+          aggregation: "top10_blocked_clients"
