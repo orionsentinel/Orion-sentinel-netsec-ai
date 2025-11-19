@@ -1,0 +1,29 @@
+# Grafana Datasources Configuration for Orion Sentinel NSM
+# Auto-provisions Loki as the primary datasource
+
+apiVersion: 1
+
+datasources:
+  # Loki datasource for all logs (NSM, DNS, AI)
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: true
+    version: 1
+    editable: true
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        # Extract source IP from Suricata logs for easy filtering
+        - name: src_ip
+          matcherRegex: '"src_ip":"([^"]+)"'
+          url: ''
+        # Extract destination IP
+        - name: dest_ip
+          matcherRegex: '"dest_ip":"([^"]+)"'
+          url: ''
+        # Extract domain from DNS queries
+        - name: domain
+          matcherRegex: '"rrname":"([^"]+)"'
+          url: ''

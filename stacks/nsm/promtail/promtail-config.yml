@@ -1,0 +1,102 @@
+# Promtail Configuration for Orion Sentinel NSM
+# Ships logs from Suricata and AI service to Loki
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Suricata EVE JSON logs
+  - job_name: suricata
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: suricata
+          service: suricata
+          pi: pi2-security
+          log_type: nsm
+          __path__: /var/log/suricata/eve.json
+    
+    pipeline_stages:
+      # Parse JSON to extract event_type as a label
+      - json:
+          expressions:
+            event_type: event_type
+            timestamp: timestamp
+      
+      # Add event_type as a label for easier filtering
+      - labels:
+          event_type:
+      
+      # Parse timestamp from Suricata log
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+      
+      # Output as JSON (preserve all fields)
+      - output:
+          source: message
+
+  # AI service results (to be mounted later from AI stack)
+  # This will be populated when AI service writes logs
+  - job_name: ai-results
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: ai
+          service: ai
+          pi: pi2-security
+          log_type: ai
+          __path__: /var/log/ai/*.json
+    
+    pipeline_stages:
+      # Parse AI result JSON
+      - json:
+          expressions:
+            service: service
+            severity: severity
+            timestamp: timestamp
+      
+      # Add dynamic labels
+      - labels:
+          service:
+          severity:
+      
+      # Parse timestamp
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+      
+      # Output as JSON
+      - output:
+          source: message
+
+  # Optional: Suricata application log (for debugging)
+  - job_name: suricata-app-log
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: suricata-app
+          service: suricata
+          pi: pi2-security
+          log_type: app
+          __path__: /var/log/suricata/suricata.log
+    
+    pipeline_stages:
+      # Simple line filter - only send errors and warnings
+      - match:
+          selector: '{job="suricata-app"}'
+          stages:
+            - regex:
+                expression: '^.* - <(?P<level>\w+)> --'
+            - labels:
+                level:
