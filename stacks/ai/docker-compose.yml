@@ -1,0 +1,89 @@
+# Orion Sentinel AI Service Stack
+# AI-powered threat detection using Raspberry Pi AI Hat
+
+version: '3.8'
+
+services:
+  orion-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orion-ai-service
+    environment:
+      # Loki connection
+      - LOKI_URL=${LOKI_URL:-http://loki:3100}
+      
+      # Pi-hole API (on Pi #1)
+      - PIHOLE_API_URL=${PIHOLE_API_URL}
+      - PIHOLE_API_TOKEN=${PIHOLE_API_TOKEN}
+      
+      # Model paths (inside container)
+      - DEVICE_ANOMALY_MODEL=${DEVICE_ANOMALY_MODEL:-/models/device_anomaly.onnx}
+      - DOMAIN_RISK_MODEL=${DOMAIN_RISK_MODEL:-/models/domain_risk.onnx}
+      
+      # Detection thresholds
+      - DEVICE_ANOMALY_THRESHOLD=${DEVICE_ANOMALY_THRESHOLD:-0.7}
+      - DOMAIN_RISK_THRESHOLD=${DOMAIN_RISK_THRESHOLD:-0.85}
+      
+      # Time windows (minutes)
+      - DEVICE_WINDOW_MINUTES=${DEVICE_WINDOW_MINUTES:-10}
+      - DOMAIN_WINDOW_MINUTES=${DOMAIN_WINDOW_MINUTES:-60}
+      
+      # Batch processing interval (minutes)
+      - BATCH_INTERVAL=${BATCH_INTERVAL:-10}
+      
+      # Enable/disable enforcement
+      - ENABLE_BLOCKING=${ENABLE_BLOCKING:-false}
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PYTHONUNBUFFERED=1
+    
+    volumes:
+      # Mount AI models
+      - ./models:/models:ro
+      
+      # Mount AI results for Promtail to pick up
+      - ai-logs:/var/log/ai
+    
+    # Optional: Expose HTTP API
+    ports:
+      - "${AI_API_PORT:-8080}:8080"
+    
+    # Resource limits for Pi 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    
+    # Command: Run in batch mode by default
+    # Override with: docker compose run orion-ai python main.py --mode api
+    command: python main.py --mode batch --interval ${BATCH_INTERVAL:-10}
+    
+    restart: unless-stopped
+    
+    # Connect to NSM network to access Loki
+    networks:
+      - orion-ai-network
+      - orion-nsm-network
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  ai-logs:
+    driver: local
+
+networks:
+  orion-ai-network:
+    name: orion-ai-network
+  orion-nsm-network:
+    external: true
+    name: orion-nsm-network
