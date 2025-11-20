@@ -86,7 +86,7 @@ echo "WARNING: This will overwrite existing configuration and data files!"
 echo ""
 
 # Ask for confirmation
-read -p "Continue with restore? (yes/N): " confirmation
+read -r -p "Continue with restore? (yes/N): " confirmation
 if [ "$confirmation" != "yes" ]; then
     echo "Restore cancelled."
     exit 0
@@ -144,7 +144,7 @@ fi
 echo "[3/4] Restoring environment examples..."
 for env_file in "$BACKUP_DIR"/.env.example "$BACKUP_DIR"/stacks/*/.env.example; do
     if [ -f "$env_file" ]; then
-        relative_path="${env_file#$BACKUP_DIR/}"
+        relative_path="${env_file#"$BACKUP_DIR"/}"
         target_path="${relative_path}"
         mkdir -p "$(dirname "$target_path")"
         cp "$env_file" "$target_path"
@@ -157,7 +157,7 @@ done
 echo "[4/4] Git information from backup..."
 if [ -f "$BACKUP_DIR/git-commit.txt" ]; then
     echo "  Backup was created from:"
-    cat "$BACKUP_DIR/git-commit.txt" | sed 's/^/    /'
+    sed 's/^/    /' "$BACKUP_DIR/git-commit.txt"
     echo ""
     echo "  Current repository state:"
     echo "    Commit: $(git log -1 --pretty=format:%H 2>/dev/null || echo 'N/A')"

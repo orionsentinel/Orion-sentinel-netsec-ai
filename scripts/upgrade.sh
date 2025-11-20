@@ -103,7 +103,7 @@ if ! git diff-index --quiet HEAD -- 2>/dev/null; then
     echo "Warning: You have uncommitted changes:"
     git status --short
     echo ""
-    read -p "Continue anyway? (yes/N): " continue_choice
+    read -r -p "Continue anyway? (yes/N): " continue_choice
     if [ "$continue_choice" != "yes" ]; then
         echo "Upgrade cancelled."
         exit 0
@@ -138,8 +138,8 @@ git fetch origin
 CURRENT_BRANCH=$(git branch --show-current)
 
 # Check if there are updates
-LOCAL=$(git rev-parse @)
-REMOTE=$(git rev-parse @{u} 2>/dev/null || echo "")
+LOCAL=$(git rev-parse '@')
+REMOTE=$(git rev-parse '@{u}' 2>/dev/null || echo "")
 
 if [ -z "$REMOTE" ]; then
     echo "Warning: No upstream branch configured"
