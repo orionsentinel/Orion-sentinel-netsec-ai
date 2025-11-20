@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 #
 # log-injector.sh - Inject sample logs into Loki for development/testing
 #
@@ -6,7 +6,7 @@
 # simulating a production environment.
 #
 
-set -e
+set -euo pipefail
 
 # Configuration
 LOKI_URL="${LOKI_URL:-http://loki:3100}"

@@ -146,9 +146,11 @@ if [ -d stacks/ai/models ]; then
     
     # Count models
     model_count=$(find stacks/ai/models -type f 2>/dev/null | wc -l)
-    echo "" >> "${MODELS_MANIFEST}"
-    echo "Total models: ${model_count}" >> "${MODELS_MANIFEST}"
-    echo "Note: Models not included in backup due to size. Redownload if needed." >> "${MODELS_MANIFEST}"
+    {
+        echo ""
+        echo "Total models: ${model_count}"
+        echo "Note: Models not included in backup due to size. Redownload if needed."
+    } >> "${MODELS_MANIFEST}"
     echo "  ✓ AI models manifest created (${model_count} models listed)"
 else
     echo "No models directory found" >> "${MODELS_MANIFEST}"
