@@ -7,16 +7,16 @@ Run with: pytest tests/
 import pytest
 from datetime import datetime
 
-from src.orion_ai.soar.models import (
+from orion_ai.soar.models import (
     Playbook, EventType, ActionType, EventRef,
     Condition, ConditionOperator, Action
 )
-from src.orion_ai.soar.engine import PlaybookEngine
-from src.orion_ai.inventory.models import Device
-from src.orion_ai.health_score.models import HealthMetrics
-from src.orion_ai.health_score.calculator import HealthScoreCalculator
-from src.orion_ai.change_monitor.analyzer import ChangeAnalyzer
-from src.orion_ai.change_monitor.models import Baseline
+from orion_ai.soar.engine import PlaybookEngine
+from orion_ai.inventory.models import Device
+from orion_ai.health_score.models import HealthMetrics
+from orion_ai.health_score.calculator import HealthScoreCalculator
+from orion_ai.change_monitor.analyzer import ChangeAnalyzer
+from orion_ai.change_monitor.models import Baseline
 
 
 class TestModels:
