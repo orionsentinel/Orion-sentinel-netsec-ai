@@ -1,0 +1,142 @@
+# Loki Configuration for Orion Sentinel NSM
+# Optimized for Raspberry Pi 5 (single-node deployment)
+
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: info
+
+common:
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2023-01-01
+      store: boltdb-shipper
+      object_store: filesystem
+      schema: v11
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  boltdb_shipper:
+    active_index_directory: /loki/boltdb-shipper-active
+    cache_location: /loki/boltdb-shipper-cache
+    shared_store: filesystem
+  
+  filesystem:
+    directory: /loki/chunks
+
+# Compactor for index cleanup and retention
+compactor:
+  working_directory: /loki/compactor
+  shared_store: filesystem
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 2h
+  retention_delete_worker_count: 150
+
+# Limits and retention
+limits_config:
+  # Retention period (default: no retention)
+  # Override via environment variable or adjust here
+  retention_period: 168h  # 7 days (7 * 24h)
+  
+  # Query limits (prevent resource exhaustion)
+  max_query_length: 721h              # 30 days max query range
+  max_query_lookback: 0               # No limit on lookback
+  max_query_series: 5000              # Max series per query
+  max_streams_per_user: 0             # No limit on streams
+  max_global_streams_per_user: 0
+  max_entries_limit_per_query: 5000   # Max log entries returned
+  max_chunks_per_query: 2000000       # Max chunks per query
+  
+  # Ingestion limits
+  ingestion_rate_mb: 10               # Max 10 MB/s ingestion rate
+  ingestion_burst_size_mb: 20         # Max 20 MB burst
+  per_stream_rate_limit: 3MB          # Max 3 MB/s per stream
+  per_stream_rate_limit_burst: 15MB   # Max 15 MB burst per stream
+  
+  # Cardinality limits
+  max_label_name_length: 1024
+  max_label_value_length: 2048
+  max_label_names_per_series: 30
+  
+  # Rejection limits
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h    # Reject samples older than 7 days
+  creation_grace_period: 10m          # Allow samples up to 10 min in future
+  
+  # Split queries for efficiency
+  split_queries_by_interval: 30m
+
+# Chunk retention
+chunk_store_config:
+  max_look_back_period: 0  # No limit (use limits_config.retention_period)
+
+# Table manager (for retention)
+table_manager:
+  retention_deletes_enabled: true
+  retention_period: 168h  # 7 days
+
+# Query frontend (caching for performance)
+query_range:
+  align_queries_with_step: true
+  max_retries: 5
+  cache_results: true
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 100  # Cache up to 100 MB of query results
+
+# Ruler (for alerting - optional)
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /loki/rules
+  rule_path: /loki/rules-temp
+  alertmanager_url: http://localhost:9093  # Optional: if using Alertmanager
+  ring:
+    kvstore:
+      store: inmemory
+  enable_api: true
+
+# Distributor (ingestion)
+distributor:
+  ring:
+    kvstore:
+      store: inmemory
+
+# Ingester (write path)
+ingester:
+  lifecycler:
+    address: 127.0.0.1
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+    final_sleep: 0s
+  chunk_idle_period: 5m       # Chunk idle time before flushing
+  chunk_retain_period: 30s    # Keep chunks in memory for 30s after flush
+  max_chunk_age: 1h           # Max age of chunk before flush
+  chunk_target_size: 524288   # 512 KB target chunk size (reduced for Pi)
+  chunk_encoding: snappy      # Compression (snappy is fast, gzip is smaller)
+  max_transfer_retries: 0
+
+# Analytics
+analytics:
+  reporting_enabled: false

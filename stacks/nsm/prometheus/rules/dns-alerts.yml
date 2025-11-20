@@ -1,0 +1,197 @@
+# DNS Stack Health Alerting Rules
+# Monitors Pi-hole, Unbound, and DNS traffic health
+# Alerts on service degradation, traffic anomalies, and exporter failures
+
+groups:
+  - name: dns_health_alerts
+    interval: 1m
+    rules:
+      # Alert: DNS block rate dropped below 1% for 15 minutes
+      # Indicates possible DNS bypass, misconfiguration, or filtering disabled
+      - alert: DNSLowBlockRate
+        expr: |
+          instance:dns_block_rate:ratio < 1
+        for: 15m
+        labels:
+          severity: warning
+          component: pihole
+          alert_type: dns_filtering
+        annotations:
+          summary: "DNS block rate critically low on {{ $labels.instance }}"
+          description: |
+            Pi-hole instance {{ $labels.instance }} has a block rate of {{ $value | humanizePercentage }}.
+            Normal block rate is typically 10-30%. Low rates may indicate:
+            - Clients bypassing Pi-hole DNS
+            - Blocklists not loaded properly
+            - Filtering disabled
+            - Network configuration change
+          current_value: "{{ $value | humanizePercentage }}"
+          threshold: "1%"
+          duration: "15m"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/dns-low-block-rate"
+      
+      # Alert: DNS queries near zero for 10 minutes
+      # Indicates clients not using DNS or DNS service broken
+      - alert: DNSNoTraffic
+        expr: |
+          instance:dns_queries_total:rate5m < 0.1
+        for: 10m
+        labels:
+          severity: critical
+          component: pihole
+          alert_type: dns_traffic
+        annotations:
+          summary: "No DNS traffic on {{ $labels.instance }}"
+          description: |
+            Pi-hole instance {{ $labels.instance }} is receiving no DNS queries.
+            Current rate: {{ $value | humanize }} queries/sec
+            
+            Possible causes:
+            - Clients not configured to use this DNS server
+            - Network connectivity issues
+            - Pi-hole service crashed
+            - Firewall blocking DNS port 53
+            - VIP failover occurred (check Keepalived status)
+          current_value: "{{ $value | humanize }} queries/sec"
+          threshold: "0.1 queries/sec"
+          duration: "10m"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/dns-no-traffic"
+      
+      # Alert: Pi-hole exporter is down for more than 5 minutes
+      # Monitoring visibility lost
+      - alert: PiHoleExporterDown
+        expr: |
+          up{job="pihole"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: pihole_exporter
+          alert_type: exporter_health
+        annotations:
+          summary: "Pi-hole exporter down on {{ $labels.instance }}"
+          description: |
+            The Pi-hole Prometheus exporter on {{ $labels.instance }} is unreachable.
+            
+            This means:
+            - No DNS metrics being collected
+            - Dashboard will show stale data
+            - Cannot monitor DNS health
+            
+            Pi-hole itself may still be functioning, but monitoring is blind.
+            Check exporter service status on the instance.
+          instance: "{{ $labels.instance }}"
+          job: "{{ $labels.job }}"
+          duration: "5m"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/pihole-exporter-down"
+      
+      # Alert: Unbound exporter is down for more than 5 minutes
+      - alert: UnboundExporterDown
+        expr: |
+          up{job="unbound"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: unbound_exporter
+          alert_type: exporter_health
+        annotations:
+          summary: "Unbound exporter down on {{ $labels.instance }}"
+          description: |
+            The Unbound Prometheus exporter on {{ $labels.instance }} is unreachable.
+            
+            Unbound (recursive DNS) may still be working, but we cannot monitor:
+            - Query recursion performance
+            - DNSSEC validation stats
+            - Cache hit rates
+            
+            Check Unbound service and exporter status.
+          instance: "{{ $labels.instance }}"
+          job: "{{ $labels.job }}"
+          duration: "5m"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/unbound-exporter-down"
+      
+      # Alert: Sudden DNS query spike (3x normal)
+      # May indicate DNS tunneling, DDoS, or legitimate traffic spike
+      - alert: DNSQuerySpike
+        expr: |
+          (
+            instance:dns_queries_total:rate5m
+            /
+            avg_over_time(instance:dns_queries_total:rate5m[1h])
+          ) > 3
+        for: 5m
+        labels:
+          severity: warning
+          component: pihole
+          alert_type: dns_anomaly
+        annotations:
+          summary: "DNS query spike detected on {{ $labels.instance }}"
+          description: |
+            DNS query rate on {{ $labels.instance }} is {{ $value | humanize }}x normal.
+            Current rate: {{ with query "instance:dns_queries_total:rate5m{instance='" }}{{ . | first | value | humanize }}{{ end }} queries/sec
+            
+            Possible causes:
+            - New device joined network
+            - DNS tunneling exfiltration
+            - DDoS attack using DNS amplification
+            - Legitimate traffic spike (software update, etc.)
+            
+            Check top clients and query patterns.
+          current_multiplier: "{{ $value | humanize }}x normal"
+          threshold: "3x"
+          duration: "5m"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/dns-query-spike"
+      
+      # Alert: High block rate for a client (>70%)
+      # Potential malware infection or policy violation
+      - alert: DNSHighClientBlockRate
+        expr: |
+          client:dns_block_rate:ratio > 70
+        for: 10m
+        labels:
+          severity: warning
+          component: pihole
+          alert_type: client_anomaly
+        annotations:
+          summary: "High DNS block rate for client {{ $labels.client }}"
+          description: |
+            Client {{ $labels.client }} has {{ $value | humanizePercentage }} of DNS queries blocked.
+            
+            This is abnormally high and may indicate:
+            - Malware or adware infection
+            - Aggressive tracking/telemetry in software
+            - Policy violation (accessing blocked content)
+            
+            Investigate device: {{ $labels.client }}
+          client_ip: "{{ $labels.client }}"
+          instance: "{{ $labels.instance }}"
+          current_value: "{{ $value | humanizePercentage }}"
+          threshold: "70%"
+          duration: "10m"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/high-client-block-rate"
+      
+      # Alert: Pi-hole service appears unhealthy
+      # Based on API health check or gravity database age
+      - alert: PiHoleServiceUnhealthy
+        expr: |
+          pihole_status{job="pihole"} != 1
+        for: 2m
+        labels:
+          severity: critical
+          component: pihole
+          alert_type: service_health
+        annotations:
+          summary: "Pi-hole service unhealthy on {{ $labels.instance }}"
+          description: |
+            Pi-hole on {{ $labels.instance }} reports unhealthy status.
+            
+            Service may be:
+            - Partially functioning but degraded
+            - Database locked or corrupted
+            - Out of memory
+            - Configuration error
+            
+            Check Pi-hole logs and service status immediately.
+          instance: "{{ $labels.instance }}"
+          job: "{{ $labels.job }}"
+          duration: "2m"
+          runbook_url: "https://docs.orion-sentinel.local/runbooks/pihole-unhealthy"

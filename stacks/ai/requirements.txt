@@ -1,0 +1,29 @@
+# Python Dependencies for Orion Sentinel AI Service
+
+# Core dependencies
+requests>=2.31.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Async HTTP for threat intel feeds
+aiohttp>=3.9.0
+aiodns>=3.1.0
+
+# ML/AI libraries
+numpy>=1.24.0
+onnxruntime>=1.16.0  # ONNX model inference
+# tflite-runtime>=2.14.0  # Uncomment if using TFLite models
+
+# Data processing
+pandas>=2.0.0
+scikit-learn>=1.3.0  # For feature scaling/normalization
+
+# HTTP API (optional)
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Logging and utilities
+python-json-logger>=2.0.7
+
+# Type checking and validation
+typing-extensions>=4.8.0
