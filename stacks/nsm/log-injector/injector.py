@@ -11,7 +11,7 @@ import os
 import time
 import requests
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict
 
 # Configuration from environment
 LOKI_URL = os.environ.get("LOKI_URL", "http://localhost:3100")
@@ -38,9 +38,6 @@ class LokiClient:
         """
         if timestamp_ns is None:
             timestamp_ns = int(time.time() * 1e9)
-        
-        # Format labels as {key="value", ...}
-        label_str = ", ".join([f'{k}="{v}"' for k, v in labels.items()])
         
         payload = {
             "streams": [
@@ -235,6 +232,7 @@ def main():
                 print("Loki is ready!")
                 break
         except requests.RequestException:
+            # Loki may not be ready yet; ignore and retry after delay
             pass
         
         time.sleep(2)

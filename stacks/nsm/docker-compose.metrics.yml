@@ -9,7 +9,7 @@ version: '3.8'
 services:
   # Node Exporter - Host system metrics (CPU, RAM, disk, network)
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.7.0
     container_name: orion-node-exporter
     command:
       - '--path.rootfs=/host'
@@ -33,7 +33,7 @@ services:
 
   # cAdvisor - Container metrics (per-container CPU, RAM, network, disk)
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
     container_name: orion-cadvisor
     ports:
       - "8080:8080"
