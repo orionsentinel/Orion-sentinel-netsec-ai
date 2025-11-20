@@ -42,7 +42,12 @@ services:
       - /dev/disk/:/dev/disk:ro
     devices:
       - /dev/kmsg
-    privileged: true
+    # cAdvisor requires elevated privileges to collect comprehensive container metrics
+    # Using specific capabilities instead of full privileged mode for better security
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor=unconfined
     restart: unless-stopped
     networks:
       - orion-metrics

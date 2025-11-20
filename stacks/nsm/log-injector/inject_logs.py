@@ -9,7 +9,6 @@ import json
 import logging
 import os
 import time
-from datetime import datetime
 from typing import Dict, List
 
 import requests
@@ -203,8 +202,8 @@ def wait_for_loki(loki_url: str, max_retries: int = 30, delay: int = 2):
             if response.status_code == 200:
                 logger.info("✓ Loki is ready!")
                 return True
-        except requests.exceptions.RequestException:
-            pass
+        except requests.exceptions.RequestException as e:
+            logger.debug(f"Attempt {attempt}: Exception while checking Loki readiness: {e}")
         
         if attempt < max_retries:
             logger.debug(f"Loki not ready yet (attempt {attempt}/{max_retries}), retrying in {delay}s...")

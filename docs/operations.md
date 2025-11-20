@@ -29,7 +29,7 @@ The `scripts/backup-all.sh` script creates timestamped backups of all critical s
 **Usage:**
 
 ```bash
-cd /path/to/orion-sentinel-netsec-ai
+cd /path/to/Orion-sentinel-netsec-ai
 ./scripts/backup-all.sh
 ```
 
@@ -65,7 +65,7 @@ backups/
 - Create backups before major configuration changes
 - Schedule periodic backups via cron (e.g., daily at 2 AM):
   ```bash
-  0 2 * * * cd /home/pi/orion-sentinel-netsec-ai && ./scripts/backup-all.sh >> /var/log/orion-backup.log 2>&1
+  0 2 * * * cd /home/pi/Orion-sentinel-netsec-ai && ./scripts/backup-all.sh >> /var/log/orion-backup.log 2>&1
   ```
 - Keep at least 7 days of backups
 - Store critical backups off-device (external drive, NAS, etc.)
