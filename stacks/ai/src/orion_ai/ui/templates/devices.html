@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Devices - Orion Sentinel{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 2rem;">Device Inventory</h1>
+
+<!-- Filters -->
+<div class="card">
+    <form method="get" style="display: flex; gap: 1rem; align-items: flex-end;">
+        <div style="flex: 1;">
+            <label for="search" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Search</label>
+            <input type="text" id="search" name="search" value="{{ search_term or '' }}" 
+                   placeholder="IP, hostname, or MAC..." 
+                   style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        <div>
+            <label for="tag" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Tag Filter</label>
+            <input type="text" id="tag" name="tag" value="{{ tag_filter or '' }}" 
+                   placeholder="e.g., iot, trusted" 
+                   style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        <button type="submit" class="btn btn-primary">Filter</button>
+        {% if tag_filter or search_term %}
+        <a href="/devices" class="btn btn-primary" style="background: #666;">Clear</a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Devices Table -->
+<div class="card">
+    <h2>Devices ({{ devices|length }})</h2>
+    {% if devices %}
+    <table>
+        <thead>
+            <tr>
+                <th>IP Address</th>
+                <th>Hostname</th>
+                <th>MAC</th>
+                <th>Type</th>
+                <th>Tags</th>
+                <th>Last Seen</th>
+                <th>Risk</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in devices %}
+            <tr>
+                <td><strong>{{ item.device.ip }}</strong></td>
+                <td>{{ item.device.hostname or '-' }}</td>
+                <td style="font-family: monospace; font-size: 0.875rem;">
+                    {{ item.device.mac or '-' }}
+                </td>
+                <td>{{ item.device.guess_type or 'Unknown' }}</td>
+                <td>
+                    {% if item.device.tags %}
+                        {% for tag in item.device.tags %}
+                        <span class="badge badge-info">{{ tag }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <span style="color: #999;">None</span>
+                    {% endif %}
+                </td>
+                <td>{{ item.device.last_seen.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                    <span class="badge badge-{% if item.risk_level == 'high' %}critical{% elif item.risk_level == 'medium' %}warning{% else %}success{% endif %}">
+                        {{ item.risk_level }}
+                    </span>
+                </td>
+                <td>
+                    <a href="/device/{{ item.device.device_id }}" class="btn btn-primary" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;">
+                        View
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color: #666; padding: 1rem 0;">No devices found</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,289 @@
+# Suricata Configuration for Orion Sentinel NSM
+# Optimized for Raspberry Pi 5 (ARM64, 8 GB RAM)
+# Mode: Passive IDS on mirrored traffic
+
+%YAML 1.1
+---
+
+# Variables for network ranges
+vars:
+  address-groups:
+    HOME_NET: "[192.168.0.0/16,10.0.0.0/8,172.16.0.0/12]"
+    EXTERNAL_NET: "!$HOME_NET"
+    
+    HTTP_SERVERS: "$HOME_NET"
+    SMTP_SERVERS: "$HOME_NET"
+    SQL_SERVERS: "$HOME_NET"
+    DNS_SERVERS: "$HOME_NET"
+    TELNET_SERVERS: "$HOME_NET"
+    AIM_SERVERS: "$EXTERNAL_NET"
+    DC_SERVERS: "$HOME_NET"
+    DNP3_SERVER: "$HOME_NET"
+    DNP3_CLIENT: "$HOME_NET"
+    MODBUS_CLIENT: "$HOME_NET"
+    MODBUS_SERVER: "$HOME_NET"
+    ENIP_CLIENT: "$HOME_NET"
+    ENIP_SERVER: "$HOME_NET"
+
+  port-groups:
+    HTTP_PORTS: "80"
+    SHELLCODE_PORTS: "!80"
+    ORACLE_PORTS: 1521
+    SSH_PORTS: 22
+    DNP3_PORTS: 20000
+    MODBUS_PORTS: 502
+    FILE_DATA_PORTS: "[$HTTP_PORTS,110,143]"
+    FTP_PORTS: 21
+    GENEVE_PORTS: 6081
+    VXLAN_PORTS: 4789
+    TEREDO_PORTS: 3544
+
+# Logging configuration
+default-log-dir: /var/log/suricata/
+
+# Global stats configuration
+stats:
+  enabled: yes
+  interval: 60
+
+# Output plugins
+outputs:
+  # EVE JSON log - primary output for Loki ingestion
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: eve.json
+      
+      # Performance: Disable community-id for lower CPU usage on Pi
+      community-id: false
+      
+      types:
+        - alert:
+            payload: yes           # Include packet payload
+            payload-buffer-size: 4kb
+            payload-printable: yes # ASCII printable only
+            packet: yes            # Include packet headers
+            metadata: yes          # Include alert metadata
+            
+        - anomaly:
+            enabled: yes
+            
+        - http:
+            extended: yes          # Extended HTTP logging
+            
+        - dns:
+            enabled: yes
+            query: yes
+            answer: yes
+            
+        - tls:
+            extended: yes
+            session-resumption: yes
+            
+        - files:
+            force-magic: no
+            force-hash: [md5]
+            
+        - smtp:
+            extended: yes
+            
+        - ssh:
+            enabled: yes
+            
+        - flow:
+            enabled: yes           # Flow (connection) records
+            
+        - stats:
+            enabled: yes
+            totals: yes
+            threads: yes
+            deltas: no
+
+  # Fast log - simple alert log (optional, for quick checks)
+  - fast:
+      enabled: no
+      filename: fast.log
+      append: yes
+
+  # Stats log
+  - stats:
+      enabled: yes
+      filename: stats.log
+      totals: yes
+      threads: yes
+      interval: 60
+
+# Logging level
+logging:
+  default-log-level: notice
+  outputs:
+    - console:
+        enabled: yes
+    - file:
+        enabled: yes
+        level: info
+        filename: suricata.log
+
+# AF_PACKET capture settings (optimized for ARM/Pi 5)
+af-packet:
+  - interface: default  # Will be overridden by command-line --af-packet option
+    cluster-id: 99
+    cluster-type: cluster_flow
+    defrag: yes
+    use-mmap: yes
+    mmap-locked: yes
+    tpacket-v3: yes
+    ring-size: 2048      # Reduced for Pi (default: 10000+)
+    block-size: 32768    # Reduced for Pi
+    
+    # Buffer size (reduced for Pi)
+    buffer-size: 32mb
+    
+    # Disable offloading (ensure we see all packets)
+    disable-promisc: no
+    checksum-checks: auto
+
+# Threading configuration for Pi 5 (4 cores)
+threading:
+  set-cpu-affinity: no  # Let OS manage CPU affinity
+  cpu-affinity:
+    - management-cpu-set:
+        cpu: [ 0 ]
+    - receive-cpu-set:
+        cpu: [ 0, 1 ]
+    - worker-cpu-set:
+        cpu: [ 2, 3 ]
+  detect-thread-ratio: 1.0
+
+# Performance tuning for Pi 5
+# Limit CPU and memory usage
+max-pending-packets: 1024  # Reduced from default (65000+)
+runmode: workers           # Worker threads
+autofp-scheduler: hash     # Hash-based load balancing
+
+# Detection engine
+detect:
+  profile: medium         # medium profile for Pi (low/medium/high)
+  custom-values:
+    toclient-groups: 3
+    toserver-groups: 3
+  sgh-mpm-context: auto
+  inspection-recursion-limit: 3000
+
+# Memory limits for Pi
+engine-analysis:
+  rules-fast-pattern: yes
+  rules: yes
+
+# Stream engine (TCP reassembly)
+stream:
+  memcap: 256mb          # Reduced for Pi (default: 64mb per thread)
+  checksum-validation: yes
+  inline: no             # Passive mode
+  reassembly:
+    memcap: 512mb        # Reduced for Pi
+    depth: 1mb           # Reduced reassembly depth
+    toserver-chunk-size: 2560
+    toclient-chunk-size: 2560
+    randomize-chunk-size: yes
+
+# Flow engine
+flow:
+  memcap: 256mb          # Reduced for Pi
+  hash-size: 65536
+  prealloc: 10000
+  emergency-recovery: 30
+
+# Defrag engine
+defrag:
+  memcap: 128mb          # Reduced for Pi
+  hash-size: 65536
+  trackers: 65535
+  max-frags: 65535
+  prealloc: yes
+  timeout: 60
+
+# App layer protocols
+app-layer:
+  protocols:
+    tls:
+      enabled: yes
+      detection-ports:
+        dp: 443
+      ja3-fingerprints: yes
+      
+    dcerpc:
+      enabled: yes
+      
+    ftp:
+      enabled: yes
+      
+    ssh:
+      enabled: yes
+      
+    smtp:
+      enabled: yes
+      
+    dns:
+      tcp:
+        enabled: yes
+        detection-ports:
+          dp: 53
+      udp:
+        enabled: yes
+        detection-ports:
+          dp: 53
+      # DNS request/response parsing
+      query-logging: yes
+      
+    http:
+      enabled: yes
+      memcap: 128mb      # Reduced for Pi
+      
+    smb:
+      enabled: yes
+      detection-ports:
+        dp: 139, 445
+
+# Rule files
+default-rule-path: /var/lib/suricata/rules
+rule-files:
+  - suricata.rules
+
+# Classification and reference configuration
+classification-file: /etc/suricata/classification.config
+reference-config-file: /etc/suricata/reference.config
+threshold-file: /etc/suricata/threshold.config
+
+# GeoIP (optional, comment out if not using)
+# geoip-database: /usr/share/GeoIP/GeoLite2-Country.mmdb
+
+# Host mode: Passive IDS (no packet modification)
+host-mode: sniffer-only
+
+# Packet acquisition
+pcap:
+  - interface: default
+    buffer-size: 32mb    # Reduced for Pi
+    checksum-checks: auto
+
+# Profiling (disabled for production)
+profiling:
+  rules:
+    enabled: no
+  keywords:
+    enabled: no
+  prefilter:
+    enabled: no
+  rulegroups:
+    enabled: no
+  packets:
+    enabled: no
+  locks:
+    enabled: no
+
+# Performance tuning hints:
+# - For lower CPU usage: Set detect.profile to "low"
+# - For more memory: Increase stream.memcap, flow.memcap
+# - For higher throughput: Increase max-pending-packets, ring-size
+# - Update rules regularly: suricata-update

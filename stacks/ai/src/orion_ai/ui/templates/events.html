@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Security Events - Orion Sentinel{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 2rem;">Security Events</h1>
+
+<!-- Filters -->
+<div class="card">
+    <form method="get" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+        <div>
+            <label for="severity" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Severity</label>
+            <select id="severity" name="severity" 
+                    style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: white;">
+                <option value="">All</option>
+                <option value="INFO" {% if severity_filter == 'INFO' %}selected{% endif %}>INFO</option>
+                <option value="WARNING" {% if severity_filter == 'WARNING' %}selected{% endif %}>WARNING</option>
+                <option value="CRITICAL" {% if severity_filter == 'CRITICAL' %}selected{% endif %}>CRITICAL</option>
+            </select>
+        </div>
+        
+        <div>
+            <label for="type" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Event Type</label>
+            <select id="type" name="type" 
+                    style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: white;">
+                <option value="">All</option>
+                <option value="intel_match" {% if type_filter == 'intel_match' %}selected{% endif %}>Threat Intel Match</option>
+                <option value="device_anomaly" {% if type_filter == 'device_anomaly' %}selected{% endif %}>Device Anomaly</option>
+                <option value="domain_risk" {% if type_filter == 'domain_risk' %}selected{% endif %}>Domain Risk</option>
+                <option value="new_device" {% if type_filter == 'new_device' %}selected{% endif %}>New Device</option>
+                <option value="honeypot_hit" {% if type_filter == 'honeypot_hit' %}selected{% endif %}>Honeypot Hit</option>
+                <option value="soar_action" {% if type_filter == 'soar_action' %}selected{% endif %}>SOAR Action</option>
+            </select>
+        </div>
+        
+        <div>
+            <label for="hours" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Time Window</label>
+            <select id="hours" name="hours" 
+                    style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: white;">
+                <option value="1" {% if hours == 1 %}selected{% endif %}>Last Hour</option>
+                <option value="6" {% if hours == 6 %}selected{% endif %}>Last 6 Hours</option>
+                <option value="24" {% if hours == 24 %}selected{% endif %}>Last 24 Hours</option>
+                <option value="72" {% if hours == 72 %}selected{% endif %}>Last 3 Days</option>
+                <option value="168" {% if hours == 168 %}selected{% endif %}>Last Week</option>
+            </select>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Filter</button>
+        {% if severity_filter or type_filter or hours != 24 %}
+        <a href="/events" class="btn btn-primary" style="background: #666;">Reset</a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Events Table -->
+<div class="card">
+    <h2>Events ({{ events|length }})</h2>
+    {% if events %}
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Severity</th>
+                    <th>Type</th>
+                    <th>Title</th>
+                    <th>Device IP</th>
+                    <th>Source</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in events %}
+                <tr>
+                    <td style="white-space: nowrap;">
+                        {{ event._timestamp.strftime('%Y-%m-%d %H:%M:%S') if event._timestamp else 'N/A' }}
+                    </td>
+                    <td>
+                        <span class="badge badge-{{ event.severity.lower() if event.severity in ['INFO', 'WARNING', 'CRITICAL'] else 'info' }}">
+                            {{ event.severity }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge badge-info">{{ event.event_type }}</span>
+                    </td>
+                    <td><strong>{{ event.title }}</strong></td>
+                    <td>
+                        {% if event.ip %}
+                        {{ event.ip }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>{{ event.source }}</td>
+                    <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis;">
+                        {{ event.description }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: #666; padding: 1rem 0;">No events found for the selected filters</p>
+    {% endif %}
+</div>
+{% endblock %}

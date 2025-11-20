@@ -35,6 +35,7 @@ ENV/
 *~
 
 # Testing
+*.log
 .pytest_cache/
 .coverage
 htmlcov/
@@ -59,4 +60,53 @@ logs/
 
 # OS
 .DS_Store
+.venv
+venv/
+ENV/
+env/
+
+# Docker
+.env
+*.env.local
+docker-compose.override.yml
+
+# Logs
+logs/
+*.log
+*.out
+*.err
+
+# AI Models (large files - users should download separately)
+stacks/ai/models/*.onnx
+stacks/ai/models/*.tflite
+stacks/ai/models/*.pb
+stacks/ai/models/*.h5
+
+# Loki & Promtail data
+stacks/nsm/loki/data/
+stacks/nsm/loki/wal/
+stacks/nsm/loki/chunks/
+
+# Grafana data
+stacks/nsm/grafana/data/
+
+# Suricata logs
+stacks/nsm/suricata/logs/
+*.eve.json
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+*~
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
 Thumbs.db

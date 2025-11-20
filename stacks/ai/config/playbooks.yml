@@ -1,0 +1,119 @@
+# SOAR Playbooks Configuration
+#
+# Defines automated response playbooks for security events.
+# Each playbook has conditions and actions that execute when matched.
+
+playbooks:
+  # Playbook 1: Alert on high-risk domains
+  - id: alert-high-risk-domain
+    name: "Alert on High-Risk Domain Detection"
+    enabled: true
+    match_event_type: "domain_risk"
+    priority: 10
+    dry_run: false
+    conditions:
+      - field: "metadata.risk_score"
+        operator: ">="
+        value: 0.85
+    actions:
+      - type: "SEND_NOTIFICATION"
+        params:
+          subject: "High-Risk Domain Detected"
+          message: "A high-risk domain has been detected on your network. Review the event details and consider blocking the domain."
+          severity: "WARNING"
+      - type: "LOG_EVENT"
+        params:
+          message: "High-risk domain detected"
+          level: "WARNING"
+
+  # Playbook 2: Alert on critical threat intel matches
+  - id: alert-threat-intel-match
+    name: "Alert on Threat Intelligence Match"
+    enabled: true
+    match_event_type: "intel_match"
+    priority: 20
+    dry_run: false
+    conditions:
+      - field: "severity"
+        operator: "=="
+        value: "CRITICAL"
+    actions:
+      - type: "SEND_NOTIFICATION"
+        params:
+          subject: "CRITICAL: Threat Intelligence Match"
+          message: "A device on your network has contacted a known malicious indicator. Immediate investigation recommended."
+          severity: "CRITICAL"
+      - type: "TAG_DEVICE"
+        params:
+          device_id: "${event.device_id}"
+          tag: "threat-intel-match"
+
+  # Playbook 3: Tag devices with high anomaly scores
+  - id: tag-anomalous-device
+    name: "Tag Anomalous Devices"
+    enabled: true
+    match_event_type: "device_anomaly"
+    priority: 5
+    dry_run: false
+    conditions:
+      - field: "metadata.anomaly_score"
+        operator: ">="
+        value: 0.8
+    actions:
+      - type: "TAG_DEVICE"
+        params:
+          device_id: "${event.device_id}"
+          tag: "anomalous"
+
+  # Playbook 4: Alert on new unknown devices
+  - id: alert-new-device
+    name: "Alert on New Device Discovery"
+    enabled: true
+    match_event_type: "new_device"
+    priority: 1
+    dry_run: false
+    conditions: []  # Match all new devices
+    actions:
+      - type: "SEND_NOTIFICATION"
+        params:
+          subject: "New Device Detected"
+          message: "A new device has joined your network. Review and classify it in the device inventory."
+          severity: "INFO"
+
+  # Playbook 5: Simulate block on very high-risk domains (dry-run example)
+  - id: simulate-block-high-risk
+    name: "Simulate Domain Blocking (Dry Run)"
+    enabled: true
+    match_event_type: "domain_risk"
+    priority: 15
+    dry_run: true  # This playbook only simulates
+    conditions:
+      - field: "metadata.risk_score"
+        operator: ">="
+        value: 0.95
+    actions:
+      - type: "BLOCK_DOMAIN"
+        params:
+          domain: "${event.metadata.domain}"
+      - type: "SIMULATE_ONLY"
+        params:
+          message: "Would block high-risk domain via Pi-hole"
+
+  # Playbook 6: Alert on honeypot hits
+  - id: alert-honeypot-hit
+    name: "Alert on Honeypot Access"
+    enabled: true
+    match_event_type: "honeypot_hit"
+    priority: 25
+    dry_run: false
+    conditions: []
+    actions:
+      - type: "SEND_NOTIFICATION"
+        params:
+          subject: "CRITICAL: Honeypot Accessed"
+          message: "A device has accessed a honeypot service. This may indicate malicious activity or lateral movement."
+          severity: "CRITICAL"
+      - type: "TAG_DEVICE"
+        params:
+          device_id: "${event.device_id}"
+          tag: "honeypot-access"

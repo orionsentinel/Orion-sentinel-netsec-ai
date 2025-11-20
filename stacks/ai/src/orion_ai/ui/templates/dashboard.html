@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Orion Sentinel{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 2rem;">Security Dashboard</h1>
+
+<!-- Health Score -->
+<div class="card">
+    <h2>Security Health</h2>
+    {% if health_score %}
+    <div style="display: flex; align-items: center; gap: 2rem;">
+        <div style="font-size: 3rem; font-weight: bold; 
+                    color: {% if health_score.score >= 80 %}#2e7d32{% elif health_score.score >= 60 %}#ff9900{% else %}#cc0000{% endif %};">
+            {{ health_score.score }}
+        </div>
+        <div>
+            <div style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem;">
+                {{ health_score.status }}
+            </div>
+            <div style="color: #666;">
+                Last updated: {{ health_score.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+            </div>
+        </div>
+    </div>
+    
+    {% if health_score.insights %}
+    <div style="margin-top: 1.5rem;">
+        <h3 style="font-size: 1rem; margin-bottom: 0.5rem;">Key Insights:</h3>
+        <ul style="list-style: none; padding-left: 0;">
+            {% for insight in health_score.insights %}
+            <li style="padding: 0.5rem 0; border-bottom: 1px solid #e0e0e0;">⚠️ {{ insight }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    {% else %}
+    <p style="color: #666;">Health score unavailable</p>
+    {% endif %}
+</div>
+
+<!-- Device Stats -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+    <div class="card">
+        <h3 style="color: #666; font-size: 0.875rem; margin-bottom: 0.5rem;">Total Devices</h3>
+        <div style="font-size: 2rem; font-weight: bold;">{{ device_stats.total }}</div>
+    </div>
+    
+    <div class="card">
+        <h3 style="color: #666; font-size: 0.875rem; margin-bottom: 0.5rem;">Unknown Devices</h3>
+        <div style="font-size: 2rem; font-weight: bold; color: #ff9900;">{{ device_stats.unknown }}</div>
+    </div>
+    
+    <div class="card">
+        <h3 style="color: #666; font-size: 0.875rem; margin-bottom: 0.5rem;">Active (24h)</h3>
+        <div style="font-size: 2rem; font-weight: bold; color: #2e7d32;">{{ device_stats.recent }}</div>
+    </div>
+</div>
+
+<!-- Suspicious Devices -->
+{% if suspicious_devices %}
+<div class="card">
+    <h2>Suspicious Devices</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>IP Address</th>
+                <th>Hostname</th>
+                <th>Type</th>
+                <th>Risk Score</th>
+                <th>Tags</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in suspicious_devices %}
+            <tr>
+                <td>{{ item.device.ip }}</td>
+                <td>{{ item.device.hostname or 'Unknown' }}</td>
+                <td>{{ item.device.guess_type or 'Unknown' }}</td>
+                <td>
+                    <span class="badge {% if item.risk_score >= 50 %}badge-critical{% else %}badge-warning{% endif %}">
+                        {{ item.risk_score }}
+                    </span>
+                </td>
+                <td>
+                    {% for tag in item.device.tags %}
+                    <span class="badge badge-info">{{ tag }}</span>
+                    {% endfor %}
+                </td>
+                <td>
+                    <a href="/device/{{ item.device.device_id }}" class="btn btn-primary">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- Recent Events -->
+<div class="card">
+    <h2>Recent Security Events</h2>
+    {% if recent_events %}
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Type</th>
+                <th>Severity</th>
+                <th>Title</th>
+                <th>Source</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in recent_events[:10] %}
+            <tr>
+                <td>{{ event._timestamp.strftime('%Y-%m-%d %H:%M:%S') if event._timestamp else 'N/A' }}</td>
+                <td><span class="badge badge-info">{{ event.event_type }}</span></td>
+                <td>
+                    <span class="badge badge-{{ event.severity.lower() if event.severity in ['INFO', 'WARNING', 'CRITICAL'] else 'info' }}">
+                        {{ event.severity }}
+                    </span>
+                </td>
+                <td>{{ event.title }}</td>
+                <td>{{ event.source }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div style="margin-top: 1rem;">
+        <a href="/events" class="btn btn-primary">View All Events</a>
+    </div>
+    {% else %}
+    <p style="color: #666;">No recent events</p>
+    {% endif %}
+</div>
+{% endblock %}
