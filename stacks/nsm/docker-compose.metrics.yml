@@ -80,9 +80,10 @@ services:
   #       max-size: "10m"
   #       max-file: "3"
 
-volumes:
-  # prometheus-data:
-  #   name: orion-prometheus-data
+# Uncomment if using Prometheus
+# volumes:
+#   prometheus-data:
+#     name: orion-prometheus-data
 
 networks:
   orion-metrics:
