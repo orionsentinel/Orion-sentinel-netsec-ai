@@ -1,0 +1,80 @@
+# Sample Pi-hole DNS Query Log
+# This file contains synthetic DNS queries for development and testing
+#
+# Format: Pi-hole dnsmasq log format
+# Fields: timestamp, query_type, domain, client_ip, status
+#
+# Query types: A (IPv4), AAAA (IPv6), PTR (reverse), etc.
+# Status codes vary by Pi-hole version
+#
+# Usage: Can be used with the dev environment to simulate DNS traffic
+
+Nov 20 08:00:15 dnsmasq[1234]: query[A] google.com from 192.168.1.50
+Nov 20 08:00:15 dnsmasq[1234]: forwarded google.com to 8.8.8.8
+Nov 20 08:00:15 dnsmasq[1234]: reply google.com is 142.250.185.46
+
+Nov 20 08:01:23 dnsmasq[1234]: query[A] malicious-ads.example from 192.168.1.75
+Nov 20 08:01:23 dnsmasq[1234]: config malicious-ads.example is 0.0.0.0
+
+Nov 20 08:02:45 dnsmasq[1234]: query[AAAA] www.youtube.com from 192.168.1.100
+Nov 20 08:02:45 dnsmasq[1234]: forwarded www.youtube.com to 8.8.8.8
+Nov 20 08:02:45 dnsmasq[1234]: reply www.youtube.com is 2607:f8b0:4004:c07::8a
+
+Nov 20 08:03:12 dnsmasq[1234]: query[A] tracking.doubleclick.net from 192.168.1.120
+Nov 20 08:03:12 dnsmasq[1234]: config tracking.doubleclick.net is 0.0.0.0
+
+Nov 20 08:05:34 dnsmasq[1234]: query[A] suspicious-crypto-miner.tk from 192.168.1.88
+Nov 20 08:05:34 dnsmasq[1234]: config suspicious-crypto-miner.tk is 0.0.0.0
+
+Nov 20 08:07:56 dnsmasq[1234]: query[A] github.com from 192.168.1.150
+Nov 20 08:07:56 dnsmasq[1234]: forwarded github.com to 8.8.8.8
+Nov 20 08:07:56 dnsmasq[1234]: reply github.com is 140.82.113.4
+
+Nov 20 08:08:22 dnsmasq[1234]: query[PTR] 50.1.168.192.in-addr.arpa from 192.168.1.1
+Nov 20 08:08:22 dnsmasq[1234]: forwarded 50.1.168.192.in-addr.arpa to 8.8.8.8
+Nov 20 08:08:22 dnsmasq[1234]: reply 50.1.168.192.in-addr.arpa is workstation.local
+
+Nov 20 08:10:45 dnsmasq[1234]: query[A] known-malware-c2.com from 192.168.1.200
+Nov 20 08:10:45 dnsmasq[1234]: config known-malware-c2.com is 0.0.0.0
+
+Nov 20 08:12:11 dnsmasq[1234]: query[A] www.amazon.com from 192.168.1.50
+Nov 20 08:12:11 dnsmasq[1234]: forwarded www.amazon.com to 8.8.8.8
+Nov 20 08:12:11 dnsmasq[1234]: reply www.amazon.com is 52.94.236.248
+
+Nov 20 08:15:33 dnsmasq[1234]: query[A] ads.facebook.com from 192.168.1.75
+Nov 20 08:15:33 dnsmasq[1234]: config ads.facebook.com is 0.0.0.0
+
+Nov 20 08:18:47 dnsmasq[1234]: query[A] suspicious-domain.tk from 192.168.1.100
+Nov 20 08:18:47 dnsmasq[1234]: forwarded suspicious-domain.tk to 8.8.8.8
+Nov 20 08:18:47 dnsmasq[1234]: reply suspicious-domain.tk is 185.220.101.42
+
+Nov 20 08:20:05 dnsmasq[1234]: query[A] api.ipify.org from 192.168.1.120
+Nov 20 08:20:05 dnsmasq[1234]: forwarded api.ipify.org to 8.8.8.8
+Nov 20 08:20:05 dnsmasq[1234]: reply api.ipify.org is 54.204.39.132
+
+Nov 20 08:22:18 dnsmasq[1234]: query[A] tracker.example.net from 192.168.1.88
+Nov 20 08:22:18 dnsmasq[1234]: config tracker.example.net is 0.0.0.0
+
+Nov 20 08:25:40 dnsmasq[1234]: query[A] www.reddit.com from 192.168.1.150
+Nov 20 08:25:40 dnsmasq[1234]: forwarded www.reddit.com to 8.8.8.8
+Nov 20 08:25:40 dnsmasq[1234]: reply www.reddit.com is 151.101.1.140
+
+Nov 20 08:28:15 dnsmasq[1234]: query[A] phishing-site.xyz from 192.168.1.200
+Nov 20 08:28:15 dnsmasq[1234]: config phishing-site.xyz is 0.0.0.0
+
+Nov 20 08:30:52 dnsmasq[1234]: query[AAAA] www.netflix.com from 192.168.1.50
+Nov 20 08:30:52 dnsmasq[1234]: forwarded www.netflix.com to 8.8.8.8
+Nov 20 08:30:52 dnsmasq[1234]: reply www.netflix.com is 2600:1f18:2148:bc01:e8a9:5c2e:5c7c:d96e
+
+Nov 20 08:33:27 dnsmasq[1234]: query[A] cdn.malvertising.com from 192.168.1.75
+Nov 20 08:33:27 dnsmasq[1234]: config cdn.malvertising.com is 0.0.0.0
+
+Nov 20 08:35:44 dnsmasq[1234]: query[A] www.wikipedia.org from 192.168.1.100
+Nov 20 08:35:44 dnsmasq[1234]: forwarded www.wikipedia.org to 8.8.8.8
+Nov 20 08:35:44 dnsmasq[1234]: reply www.wikipedia.org is 198.35.26.96
+
+Nov 20 08:38:09 dnsmasq[1234]: query[A] telemetry.microsoft.com from 192.168.1.120
+Nov 20 08:38:09 dnsmasq[1234]: config telemetry.microsoft.com is 0.0.0.0
+
+Nov 20 08:40:31 dnsmasq[1234]: query[A] cryptojacking-pool.io from 192.168.1.88
+Nov 20 08:40:31 dnsmasq[1234]: config cryptojacking-pool.io is 0.0.0.0

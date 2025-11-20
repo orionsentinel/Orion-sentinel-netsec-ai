@@ -76,6 +76,10 @@ logs/
 *.out
 *.err
 
+# Exception: Sample data files should be committed
+!samples/*.log
+!samples/*.json
+
 # AI Models (large files - users should download separately)
 stacks/ai/models/*.onnx
 stacks/ai/models/*.tflite
