@@ -156,8 +156,51 @@ Key environment variables:
 
 See individual service documentation for details.
 
+## Operations
+
+### Backup & Restore
+
+Create a backup of your configuration and state:
+
+```bash
+./scripts/backup-all.sh
+```
+
+Restore from a backup:
+
+```bash
+./scripts/restore-all.sh backups/backup_20250120_143022
+```
+
+### Upgrade
+
+Safely upgrade to the latest version:
+
+```bash
+./scripts/upgrade.sh
+```
+
+This will:
+1. Create a backup automatically
+2. Pull latest code changes
+3. Update Docker images
+4. Restart services
+
+See [Operations Guide](docs/operations.md) for detailed procedures.
+
+### Security
+
+Review the [Threat Model & Security](docs/threat-model.md) guide for:
+- System assets and threats
+- Hardening recommendations
+- Deployment scenarios
+- Incident response procedures
+
 ## Documentation
 
+- [Operations Guide](docs/operations.md): Backup, restore, upgrade, dev mode
+- [Threat Model & Security](docs/threat-model.md): Security architecture and hardening
+- [Architecture Overview](docs/architecture.md): System design and data flows
 - [SOAR Playbooks](docs/soar.md)
 - [Device Inventory](docs/inventory.md)
 - [Change Monitor](docs/change-monitor.md)

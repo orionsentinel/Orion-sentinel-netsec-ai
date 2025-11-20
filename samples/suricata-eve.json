@@ -1,0 +1,180 @@
+{
+  "timestamp": "2025-01-20T14:30:22.123456+0000",
+  "flow_id": 1234567890,
+  "event_type": "alert",
+  "src_ip": "192.168.1.150",
+  "src_port": 54321,
+  "dest_ip": "93.184.216.34",
+  "dest_port": 80,
+  "proto": "TCP",
+  "alert": {
+    "action": "allowed",
+    "gid": 1,
+    "signature_id": 2100498,
+    "rev": 7,
+    "signature": "GPL ATTACK_RESPONSE id check returned root",
+    "category": "Potentially Bad Traffic",
+    "severity": 2
+  },
+  "http": {
+    "hostname": "example.com",
+    "url": "/admin/config.php",
+    "http_user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "http_method": "GET",
+    "protocol": "HTTP/1.1",
+    "status": 200,
+    "length": 1024
+  }
+}
+{
+  "timestamp": "2025-01-20T14:31:45.789012+0000",
+  "flow_id": 1234567891,
+  "event_type": "alert",
+  "src_ip": "192.168.1.55",
+  "src_port": 49152,
+  "dest_ip": "185.220.100.240",
+  "dest_port": 443,
+  "proto": "TCP",
+  "alert": {
+    "action": "allowed",
+    "gid": 1,
+    "signature_id": 2024364,
+    "rev": 4,
+    "signature": "ET TOR Known Tor Exit Node Traffic group 1",
+    "category": "Potentially Bad Traffic",
+    "severity": 2
+  },
+  "tls": {
+    "subject": "CN=tor-exit-node.example.org",
+    "issuerdn": "C=US, O=Let's Encrypt",
+    "sni": "tor-exit-node.example.org"
+  }
+}
+{
+  "timestamp": "2025-01-20T14:32:10.456789+0000",
+  "flow_id": 1234567892,
+  "event_type": "alert",
+  "src_ip": "192.168.1.200",
+  "src_port": 55443,
+  "dest_ip": "198.51.100.42",
+  "dest_port": 8080,
+  "proto": "TCP",
+  "alert": {
+    "action": "allowed",
+    "gid": 1,
+    "signature_id": 2012648,
+    "rev": 2,
+    "signature": "ET SCAN Potential SSH Scan",
+    "category": "Attempted Information Leak",
+    "severity": 2
+  }
+}
+{
+  "timestamp": "2025-01-20T14:33:05.111222+0000",
+  "flow_id": 1234567893,
+  "event_type": "dns",
+  "src_ip": "192.168.1.100",
+  "src_port": 53214,
+  "dest_ip": "192.168.1.1",
+  "dest_port": 53,
+  "proto": "UDP",
+  "dns": {
+    "type": "query",
+    "id": 12345,
+    "rrname": "malicious-domain.example",
+    "rrtype": "A",
+    "tx_id": 0
+  }
+}
+{
+  "timestamp": "2025-01-20T14:33:06.222333+0000",
+  "flow_id": 1234567893,
+  "event_type": "dns",
+  "src_ip": "192.168.1.1",
+  "src_port": 53,
+  "dest_ip": "192.168.1.100",
+  "dest_port": 53214,
+  "proto": "UDP",
+  "dns": {
+    "version": 2,
+    "type": "answer",
+    "id": 12345,
+    "flags": "8180",
+    "qr": true,
+    "rd": true,
+    "ra": true,
+    "rrname": "malicious-domain.example",
+    "rrtype": "A",
+    "rcode": "NOERROR",
+    "answers": [
+      {
+        "rrname": "malicious-domain.example",
+        "rrtype": "A",
+        "ttl": 300,
+        "rdata": "203.0.113.50"
+      }
+    ]
+  }
+}
+{
+  "timestamp": "2025-01-20T14:34:15.333444+0000",
+  "flow_id": 1234567894,
+  "event_type": "alert",
+  "src_ip": "192.168.1.75",
+  "src_port": 12345,
+  "dest_ip": "192.0.2.100",
+  "dest_port": 4444,
+  "proto": "TCP",
+  "alert": {
+    "action": "allowed",
+    "gid": 1,
+    "signature_id": 2009582,
+    "rev": 3,
+    "signature": "ET TROJAN Metasploit Meterpreter reverse shell",
+    "category": "A Network Trojan was detected",
+    "severity": 1
+  }
+}
+{
+  "timestamp": "2025-01-20T14:35:20.444555+0000",
+  "flow_id": 1234567895,
+  "event_type": "alert",
+  "src_ip": "192.168.1.180",
+  "src_port": 49200,
+  "dest_ip": "93.184.216.34",
+  "dest_port": 443,
+  "proto": "TCP",
+  "alert": {
+    "action": "allowed",
+    "gid": 1,
+    "signature_id": 2027609,
+    "rev": 1,
+    "signature": "ET INFO TLS Handshake Failure",
+    "category": "Misc activity",
+    "severity": 3
+  },
+  "tls": {
+    "subject": "CN=example.com",
+    "issuerdn": "C=US, O=DigiCert Inc",
+    "sni": "example.com"
+  }
+}
+{
+  "timestamp": "2025-01-20T14:36:00.555666+0000",
+  "flow_id": 1234567896,
+  "event_type": "http",
+  "src_ip": "192.168.1.120",
+  "src_port": 54999,
+  "dest_ip": "93.184.216.34",
+  "dest_port": 80,
+  "proto": "TCP",
+  "http": {
+    "hostname": "example.com",
+    "url": "/index.html",
+    "http_user_agent": "curl/7.68.0",
+    "http_method": "GET",
+    "protocol": "HTTP/1.1",
+    "status": 200,
+    "length": 2048
+  }
+}

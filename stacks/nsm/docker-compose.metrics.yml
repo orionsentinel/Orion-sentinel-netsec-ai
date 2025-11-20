@@ -1,0 +1,86 @@
+# Orion Sentinel NSM Stack - Resource Monitoring
+# Add this to the main docker-compose.yml with:
+#   docker compose -f docker-compose.yml -f docker-compose.metrics.yml up -d
+#
+# Provides lightweight resource monitoring for Raspberry Pi and containers
+
+version: '3.8'
+
+services:
+  # Node Exporter - Host system metrics (CPU, RAM, disk, network)
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: orion-node-exporter
+    command:
+      - '--path.rootfs=/host'
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - "9100:9100"
+    volumes:
+      - /:/host:ro,rslave
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # cAdvisor - Container metrics (per-container CPU, RAM, network, disk)
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: orion-cadvisor
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Prometheus - Metrics storage and querying (optional)
+  # Uncomment if you want local metrics storage instead of Grafana Cloud
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: orion-prometheus
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #     - ./prometheus/rules:/etc/prometheus/rules:ro
+  #     - prometheus-data:/prometheus
+  #   command:
+  #     - '--config.file=/etc/prometheus/prometheus.yml'
+  #     - '--storage.tsdb.path=/prometheus'
+  #     - '--storage.tsdb.retention.time=15d'
+  #     - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+  #     - '--web.console.templates=/usr/share/prometheus/consoles'
+  #   restart: unless-stopped
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "10m"
+  #       max-file: "3"
+
+# volumes:
+#   prometheus-data:
+#     driver: local
+
+networks:
+  default:
+    name: orion-nsm-network

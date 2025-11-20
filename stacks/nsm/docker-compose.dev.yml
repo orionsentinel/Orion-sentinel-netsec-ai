@@ -1,0 +1,85 @@
+# Orion Sentinel NSM Stack - Development Mode
+# For testing and development with sample data
+# Uses log injector to simulate live traffic
+
+version: '3.8'
+
+services:
+  # Loki - Log aggregation and storage
+  loki:
+    image: grafana/loki:2.9.3
+    container_name: orion-loki-dev
+    ports:
+      - "3100:3100"  # HTTP API
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data-dev:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Grafana - Visualization and dashboards
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: orion-grafana-dev
+    ports:
+      - "3000:3000"  # Web UI
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_LOG_LEVEL=debug
+    volumes:
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - grafana-data-dev:/var/lib/grafana
+    depends_on:
+      - loki
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Log Injector - Reads sample data and pushes to Loki
+  log-injector:
+    image: python:3.11-slim
+    container_name: orion-log-injector
+    volumes:
+      - ../../samples:/samples:ro
+      - ./log-injector:/app
+    working_dir: /app
+    command: >
+      sh -c "
+        pip install requests &&
+        python /app/injector.py
+      "
+    environment:
+      - LOKI_URL=http://loki:3100
+      - SAMPLES_DIR=/samples
+      - INJECT_INTERVAL=5
+      - LOOP_ENABLED=true
+    depends_on:
+      - loki
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  loki-data-dev:
+    driver: local
+  grafana-data-dev:
+    driver: local
+
+networks:
+  default:
+    name: orion-nsm-dev-network

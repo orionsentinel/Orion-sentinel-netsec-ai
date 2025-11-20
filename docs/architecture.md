@@ -704,6 +704,15 @@ Event types:
 - AI Detection: 10 minutes (device), 60 minutes (domain)
 - Threat Intel Refresh: 6 hours
 
+## Related Documentation
+
+- [Operations Guide](operations.md): Backup, restore, upgrade procedures
+- [Threat Model & Security](threat-model.md): Security architecture and hardening
+- [Pi Setup Guide](pi2-setup.md): Initial installation and configuration
+- [Logging & Dashboards](logging-and-dashboards.md): Loki and Grafana usage
+- [AI Stack](ai-stack.md): AI service design and models
+- [SOAR Playbooks](soar.md): Automated response configuration
+
 ## Future Enhancements
 
 - [ ] Support for multiple Loki instances (federated logs)
