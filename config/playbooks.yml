@@ -1,0 +1,127 @@
+# Example playbooks for SOAR automation
+
+playbooks:
+  # High-confidence domain blocking
+  - id: block-high-confidence-domains
+    name: Block High Confidence Malicious Domains
+    description: Automatically block domains with threat intel confidence >= 0.9
+    enabled: true
+    match_event_type: intel_match
+    dry_run: true  # SAFETY: Set to false only after testing
+    priority: 100
+    conditions:
+      - field: fields.ioc_type
+        operator: ==
+        value: DOMAIN
+      - field: fields.confidence
+        operator: ">="
+        value: 0.9
+    actions:
+      - action_type: BLOCK_DOMAIN
+        parameters:
+          domain: "{{fields.ioc_value}}"
+          reason: "High-confidence threat intel match"
+        description: Block domain via Pi-hole
+      - action_type: SEND_NOTIFICATION
+        parameters:
+          message: "Blocked malicious domain: {{fields.ioc_value}} (confidence: {{fields.confidence}})"
+          severity: high
+        description: Send notification
+
+  # Tag suspicious devices
+  - id: tag-anomalous-devices
+    name: Tag Devices with High Anomaly Scores
+    description: Tag devices that trigger high-severity AI anomalies
+    enabled: true
+    match_event_type: ai-device-anomaly
+    dry_run: false
+    priority: 50
+    conditions:
+      - field: fields.anomaly_score
+        operator: ">="
+        value: 0.8
+    actions:
+      - action_type: TAG_DEVICE
+        parameters:
+          device_ip: "{{fields.device_ip}}"
+          tag: anomalous
+        description: Tag device for investigation
+
+  # Alert on new devices
+  - id: notify-new-devices
+    name: Notify on New Devices
+    description: Send notification when new devices appear on network
+    enabled: true
+    match_event_type: inventory_event
+    dry_run: false
+    priority: 30
+    conditions:
+      - field: fields.event_type
+        operator: ==
+        value: new_device
+    actions:
+      - action_type: SEND_NOTIFICATION
+        parameters:
+          message: "New device detected: {{fields.device_ip}} (MAC: {{fields.mac}})"
+          severity: medium
+        description: Alert on new device
+
+  # Escalate honeypot hits
+  - id: escalate-honeypot-hits
+    name: Escalate Honeypot Interactions
+    description: High priority alert for any honeypot interaction
+    enabled: true
+    match_event_type: honeypot_hit
+    dry_run: false
+    priority: 200
+    conditions: []  # All honeypot hits are suspicious
+    actions:
+      - action_type: TAG_DEVICE
+        parameters:
+          device_ip: "{{fields.src_ip}}"
+          tag: honeypot-attacker
+        description: Tag attacking IP
+      - action_type: SEND_NOTIFICATION
+        parameters:
+          message: "ALERT: Honeypot interaction from {{fields.src_ip}} on port {{fields.dst_port}}"
+          severity: critical
+        description: Critical alert
+
+  # Lab mode - aggressive blocking for lab devices
+  - id: lab-aggressive-blocking
+    name: Lab Mode - Aggressive Intel Blocking
+    description: Block any intel match on lab-tagged devices (for testing)
+    enabled: false  # Enable when testing in lab
+    match_event_type: intel_match
+    dry_run: false
+    priority: 75
+    conditions:
+      - field: fields.device_tags
+        operator: contains
+        value: lab
+      - field: fields.confidence
+        operator: ">="
+        value: 0.5
+    actions:
+      - action_type: BLOCK_DOMAIN
+        parameters:
+          domain: "{{fields.ioc_value}}"
+          reason: "Lab mode: Lower threshold blocking"
+
+  # Simulate action for testing
+  - id: test-playbook
+    name: Test Playbook (Simulation Only)
+    description: Test playbook that only logs, never executes
+    enabled: true
+    match_event_type: ai-domain-risk
+    dry_run: true
+    priority: 1
+    conditions:
+      - field: fields.risk_score
+        operator: ">"
+        value: 0.5
+    actions:
+      - action_type: SIMULATE_ONLY
+        parameters:
+          test: true
+        description: Simulation test action

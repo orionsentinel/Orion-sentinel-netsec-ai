@@ -20,11 +20,46 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
 *.log
 .pytest_cache/
 .coverage
 htmlcov/
 .tox/
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment
+.env
+.env.local
+
+# Temporary files
+/tmp/
+*.tmp
+
+# OS
+.DS_Store
 .venv
 venv/
 ENV/

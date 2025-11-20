@@ -1,0 +1,31 @@
+# Example playbook configuration
+
+# Copy this file to config/playbooks.yml and customize for your environment
+
+playbooks:
+  # Example: Block high-confidence malicious domains
+  - id: block-high-confidence-domains
+    name: Block High Confidence Malicious Domains
+    description: Automatically block domains with threat intel confidence >= 0.9
+    enabled: true
+    match_event_type: intel_match
+    dry_run: true  # SAFETY: Set to false only after testing
+    priority: 100
+    conditions:
+      - field: fields.ioc_type
+        operator: ==
+        value: DOMAIN
+      - field: fields.confidence
+        operator: ">="
+        value: 0.9
+    actions:
+      - action_type: BLOCK_DOMAIN
+        parameters:
+          domain: "{{fields.ioc_value}}"
+          reason: "High-confidence threat intel match"
+        description: Block domain via Pi-hole
+      - action_type: SEND_NOTIFICATION
+        parameters:
+          message: "Blocked malicious domain: {{fields.ioc_value}}"
+          severity: high
+        description: Send notification

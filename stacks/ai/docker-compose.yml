@@ -1,3 +1,156 @@
+version: '3.8'
+
+services:
+  # SOAR Service
+  soar:
+    build:
+      context: ../..
+      dockerfile: stacks/ai/Dockerfile
+    container_name: orion-soar
+    command: python -m orion_ai.soar.service
+    environment:
+      - LOKI_URL=http://loki:3100
+      - SOAR_DRY_RUN=1
+      - SOAR_POLL_INTERVAL=60
+      - SOAR_PLAYBOOKS_FILE=/config/playbooks.yml
+      - SOAR_ALLOW_EMPTY_PLAYBOOKS=0
+      - PIHOLE_URL=http://192.168.1.2
+      - PIHOLE_API_KEY=${PIHOLE_API_KEY}
+      - LOG_LEVEL=INFO
+    volumes:
+      - ../../config:/config:ro
+      - soar-data:/data
+    restart: unless-stopped
+    depends_on:
+      - loki
+    networks:
+      - orion-network
+
+  # Device Inventory Service
+  inventory:
+    build:
+      context: ../..
+      dockerfile: stacks/ai/Dockerfile
+    container_name: orion-inventory
+    command: python -m orion_ai.inventory.service
+    environment:
+      - LOKI_URL=http://loki:3100
+      - INVENTORY_POLL_INTERVAL=300
+      - INVENTORY_DB_PATH=/data/inventory.db
+      - LOG_LEVEL=INFO
+    volumes:
+      - inventory-data:/data
+    restart: unless-stopped
+    depends_on:
+      - loki
+    networks:
+      - orion-network
+
+  # Change Monitor Service
+  change-monitor:
+    build:
+      context: ../..
+      dockerfile: stacks/ai/Dockerfile
+    container_name: orion-change-monitor
+    command: python -m orion_ai.change_monitor.service
+    environment:
+      - LOKI_URL=http://loki:3100
+      - CHANGE_MONITOR_INTERVAL_HOURS=24
+      - CHANGE_MONITOR_PERIOD_DAYS=7
+      - LOG_LEVEL=INFO
+    volumes:
+      - change-data:/data
+    restart: unless-stopped
+    depends_on:
+      - loki
+    networks:
+      - orion-network
+
+  # Health Score Service
+  health-score:
+    build:
+      context: ../..
+      dockerfile: stacks/ai/Dockerfile
+    container_name: orion-health-score
+    command: python -m orion_ai.health_score.service
+    environment:
+      - LOKI_URL=http://loki:3100
+      - HEALTH_SCORE_INTERVAL_HOURS=1
+      - LOG_LEVEL=INFO
+    volumes:
+      - health-data:/data
+    restart: unless-stopped
+    depends_on:
+      - loki
+    networks:
+      - orion-network
+
+  # API Server
+  api:
+    build:
+      context: ../..
+      dockerfile: stacks/ai/Dockerfile
+    container_name: orion-api
+    command: python -m orion_ai.ui.http_server
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - API_RELOAD=false
+      - LOKI_URL=http://loki:3100
+      - LOG_LEVEL=INFO
+    ports:
+      - "8000:8000"
+    volumes:
+      - inventory-data:/data:ro
+    restart: unless-stopped
+    depends_on:
+      - loki
+      - inventory
+    networks:
+      - orion-network
+
+  # Loki (log aggregation)
+  loki:
+    image: grafana/loki:latest
+    container_name: orion-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki-data:/loki
+    restart: unless-stopped
+    networks:
+      - orion-network
+
+  # Grafana (dashboards)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: orion-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../../config/grafana/provisioning:/etc/grafana/provisioning:ro
+    restart: unless-stopped
+    depends_on:
+      - loki
+    networks:
+      - orion-network
+
+volumes:
+  soar-data:
+  inventory-data:
+  change-data:
+  health-data:
+  loki-data:
+  grafana-data:
+
+networks:
+  orion-network:
+    driver: bridge
 # Orion Sentinel AI Service Stack
 # AI-powered threat detection using Raspberry Pi AI Hat
 
