@@ -4,6 +4,7 @@ Orion Sentinel Wizard - FastAPI Application
 First-run web wizard for configuring the Security Pi.
 """
 
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -18,6 +19,7 @@ from .views import WizardConfig, apply_configuration, check_setup_done, mark_set
 WIZARD_DIR = Path(__file__).parent
 TEMPLATES_DIR = WIZARD_DIR / "templates"
 STATIC_DIR = WIZARD_DIR / "static"
+CONFIG_CACHE_FILE = Path("/tmp/wizard_config.json")
 
 # Create FastAPI app
 app = FastAPI(
@@ -31,6 +33,28 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 # Setup Jinja2 templates
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+
+def save_temp_config(config: WizardConfig) -> None:
+    """Save configuration to temporary file."""
+    CONFIG_CACHE_FILE.write_text(config.model_dump_json())
+
+
+def load_temp_config() -> Optional[WizardConfig]:
+    """Load configuration from temporary file."""
+    if CONFIG_CACHE_FILE.exists():
+        try:
+            data = json.loads(CONFIG_CACHE_FILE.read_text())
+            return WizardConfig(**data)
+        except Exception:
+            return None
+    return None
+
+
+def clear_temp_config() -> None:
+    """Clear temporary configuration file."""
+    if CONFIG_CACHE_FILE.exists():
+        CONFIG_CACHE_FILE.unlink()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -69,11 +93,17 @@ async def wizard_dns_get(request: Request, error: Optional[str] = None):
     if check_setup_done():
         return RedirectResponse(url="/")
     
+    # Load existing config if available
+    config = load_temp_config()
+    
     return templates.TemplateResponse(
         "wizard_dns.html",
         {
             "request": request,
-            "error": error
+            "error": error,
+            "dns_pi_ip": config.dns_pi_ip if config else None,
+            "pihole_enabled": config.pihole_enabled if config else False,
+            "pihole_api_token": config.pihole_api_token if config else None
         }
     )
 
@@ -88,12 +118,11 @@ async def wizard_dns_post(
     """
     Process DNS Pi configuration.
     """
-    # Store in session/temp config
-    config = WizardConfig(
-        dns_pi_ip=dns_pi_ip,
-        pihole_enabled=pihole_enabled,
-        pihole_api_token=pihole_api_token if pihole_enabled else None
-    )
+    # Create or update config
+    config = load_temp_config() or WizardConfig()
+    config.dns_pi_ip = dns_pi_ip
+    config.pihole_enabled = pihole_enabled
+    config.pihole_api_token = pihole_api_token if pihole_enabled else None
     
     # Test connection if Pi-hole is enabled
     if pihole_enabled and pihole_api_token:
@@ -110,8 +139,8 @@ async def wizard_dns_post(
                 }
             )
     
-    # Save to temp file and proceed
-    request.session = {"config": config.model_dump()}
+    # Save and proceed
+    save_temp_config(config)
     return RedirectResponse(url="/wizard/mode", status_code=303)
 
 
@@ -138,16 +167,13 @@ async def wizard_mode_post(
     """
     Process network and mode configuration.
     """
-    # Get existing config from session
-    config_dict = getattr(request, "session", {}).get("config", {})
-    config = WizardConfig(**config_dict) if config_dict else WizardConfig()
-    
-    # Update with new values
+    # Load and update config
+    config = load_temp_config() or WizardConfig()
     config.nsm_iface = nsm_iface
     config.operating_mode = operating_mode
     
-    # Save to session
-    request.session = {"config": config.model_dump()}
+    # Save and proceed
+    save_temp_config(config)
     return RedirectResponse(url="/wizard/features", status_code=303)
 
 
@@ -174,16 +200,13 @@ async def wizard_features_post(
     """
     Process features configuration.
     """
-    # Get existing config from session
-    config_dict = getattr(request, "session", {}).get("config", {})
-    config = WizardConfig(**config_dict) if config_dict else WizardConfig()
-    
-    # Update with new values
+    # Load and update config
+    config = load_temp_config() or WizardConfig()
     config.enable_ai = enable_ai
     config.enable_intel = enable_intel
     
-    # Save to session
-    request.session = {"config": config.model_dump()}
+    # Save and proceed
+    save_temp_config(config)
     return RedirectResponse(url="/wizard/finish", status_code=303)
 
 
@@ -195,20 +218,19 @@ async def wizard_finish_get(request: Request):
     if check_setup_done():
         return RedirectResponse(url="/")
     
-    # Get config from session
-    config_dict = getattr(request, "session", {}).get("config", {})
-    if not config_dict:
-        # No config in session, redirect to start
+    # Load config
+    config = load_temp_config()
+    if not config:
+        # No config, redirect to start
         return RedirectResponse(url="/wizard/welcome")
-    
-    config = WizardConfig(**config_dict)
     
     # Apply configuration
     success, message = apply_configuration(config)
     
-    # Mark setup as done
+    # Mark setup as done and clear temp config
     if success:
         mark_setup_done()
+        clear_temp_config()
     
     return templates.TemplateResponse(
         "wizard_finish.html",

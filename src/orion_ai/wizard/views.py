@@ -72,6 +72,24 @@ def test_pihole_connection(ip: str, token: str) -> Tuple[bool, str]:
     Returns:
         Tuple of (success, message)
     """
+    # Validate IP address format to prevent SSRF
+    import re
+    ip_pattern = re.compile(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$")
+    if not ip_pattern.match(ip):
+        return False, "Invalid IP address format"
+    
+    # Additional validation: ensure octets are in valid range
+    try:
+        octets = [int(octet) for octet in ip.split(".")]
+        if any(octet < 0 or octet > 255 for octet in octets):
+            return False, "IP address octets must be between 0 and 255"
+    except ValueError:
+        return False, "Invalid IP address"
+    
+    # Prevent access to localhost/loopback unless explicitly allowed
+    if ip.startswith("127.") or ip.startswith("0."):
+        return False, "Cannot connect to loopback addresses"
+    
     try:
         url = f"http://{ip}/admin/api.php"
         params = {
@@ -212,9 +230,11 @@ def get_local_ip() -> str:
     try:
         import socket
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
+        try:
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            return ip
+        finally:
+            s.close()
     except Exception:
         return "localhost"
