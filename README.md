@@ -166,6 +166,12 @@ See individual service documentation for details.
 - [Host Logs (EDR-lite)](docs/host-logs.md)
 - [Honeypot Integration](src/orion_ai/honeypot/design.md)
 - [Grafana Dashboards](config/grafana/README.md)
+- [Architecture](docs/architecture.md)
+
+### Operations & Security
+
+- [Operations Guide](docs/operations.md) - Backup, restore, upgrade procedures
+- [Threat Model](docs/threat-model.md) - Security assumptions and hardening recommendations
 
 ## Module Structure
 

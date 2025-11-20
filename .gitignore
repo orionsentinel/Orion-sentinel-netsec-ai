@@ -110,3 +110,6 @@ temp/
 
 # OS
 Thumbs.db
+
+# Backups
+backups/

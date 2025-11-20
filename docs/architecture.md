@@ -712,3 +712,10 @@ Event types:
 - [ ] Integration with external SIEM/SOAR platforms
 - [ ] Mobile app for alerts
 - [ ] Voice assistant integration (Alexa, Google Home)
+
+## See Also
+
+- [Operations Guide](operations.md) - Backup, restore, upgrade procedures
+- [Threat Model](threat-model.md) - Security considerations and assumptions
+- [SOAR Guide](soar.md) - Playbook configuration
+- [Lab Mode](lab-mode.md) - Safe testing environment
