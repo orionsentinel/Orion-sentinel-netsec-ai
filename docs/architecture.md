@@ -460,3 +460,255 @@ If traffic or device count grows:
 - [pi2-setup.md](pi2-setup.md) for installation steps
 - [logging-and-dashboards.md](logging-and-dashboards.md) for Grafana/Loki usage
 - [ai-stack.md](ai-stack.md) for AI service details
+
+## Software Architecture (AI Service)
+
+The AI service (`stacks/ai/`) is now organized into a modular architecture with clear separation of concerns:
+
+### Core Module (`orion_ai/core/`)
+
+**Purpose**: Shared models, configuration, and utilities used across all modules.
+
+Components:
+- `models.py`: Domain models (Device, Event, HealthMetrics, HealthScore)
+- `config.py`: Centralized configuration management via Pydantic Settings
+- `loki_client.py`: Loki HTTP API abstraction for reading/writing logs
+- `events.py`: Event emission helpers for creating unified event stream
+
+### Inventory Module (`orion_ai/inventory/`)
+
+**Purpose**: Automatic device discovery and tracking.
+
+Components:
+- `store.py`: SQLite-based device persistence
+- `collector.py`: Discovers devices from Suricata flows and DNS logs
+- `service.py`: Periodic service that updates inventory and emits new device events
+
+Workflow:
+```
+Loki (NSM+DNS logs) → Collector → Device Store (SQLite) → New Device Events
+```
+
+### SOAR Module (`orion_ai/soar/`)
+
+**Purpose**: Security Orchestration, Automation and Response via playbooks.
+
+Components:
+- `models.py`: Playbook, Condition, Action, TriggeredAction models
+- `engine.py`: Loads playbooks from YAML and evaluates events
+- `actions.py`: Action handlers (block domain, tag device, send notification)
+- `service.py`: Periodic service that fetches events and executes playbooks
+
+Workflow:
+```
+Loki Events → Engine (match playbooks) → Actions → Effects (Pi-hole, tags, notifications)
+```
+
+### Notifications Module (`orion_ai/notifications/`)
+
+**Purpose**: Multi-provider notification dispatching.
+
+Components:
+- `models.py`: Notification model with severity levels
+- `providers.py`: Email (SMTP), Webhook, Signal (stub), Telegram (stub)
+- `dispatcher.py`: Manages multiple providers and sends notifications
+
+### Health Score Module (`orion_ai/health_score/`)
+
+**Purpose**: Calculate overall security health score from metrics.
+
+Components:
+- `calculator.py`: Weighted scoring algorithm
+- `service.py`: Periodic service that collects metrics and calculates score
+
+Metrics:
+- Unknown devices (15% weight)
+- High anomalies (30% weight)
+- Threat intel matches (35% weight)
+- New devices (10% weight)
+- Critical events (10% weight)
+
+### Threat Intel Module (`orion_ai/threat_intel/`)
+
+**Purpose**: Ingest and correlate threat intelligence feeds.
+
+Components:
+- `ioc_models.py`: IOC, Advisory, IntelMatch models
+- `sources.py`: Feed fetchers (OTX, URLhaus, Feodo, PhishTank, CISA KEV)
+- `store.py`: SQLite-based IOC storage
+- `ioc_extractor.py`: Extract IOCs from logs
+- `correlator.py`: Match IOCs against network activity
+
+### Web UI Module (`orion_ai/ui/`)
+
+**Purpose**: FastAPI-based web interface for monitoring and management.
+
+Components:
+- `api.py`: FastAPI app with HTML and JSON endpoints
+- `views.py`: View logic that queries Loki and inventory
+- `templates/`: Jinja2 HTML templates
+- `static/`: CSS/JS assets (optional)
+
+Pages:
+- `/`: Dashboard (health score, recent events, suspicious devices)
+- `/devices`: Device inventory with filtering
+- `/device/{id}`: Device profile with timeline
+- `/events`: Security events feed with filtering
+- `/settings`: Configuration (placeholder)
+
+API Endpoints:
+- `/api/health`: Current health score
+- `/api/events`: Recent events (JSON)
+- `/api/devices`: Device list (JSON)
+- `/api/device/{id}`: Device profile (JSON)
+- `/api/config`: Current configuration (non-sensitive)
+
+### AI Detection Module (`orion_ai/`)
+
+**Purpose**: Device anomaly and domain risk detection.
+
+Existing components (preserved):
+- `pipelines.py`: DeviceAnomalyPipeline, DomainRiskPipeline
+- `feature_extractor.py`: Feature engineering
+- `model_runner.py`: ONNX/TFLite model inference
+- `log_reader.py`: Read logs from Loki
+- `output_writer.py`: Write results to Loki
+- `pihole_client.py`: Pi-hole API integration
+
+### Stub Modules (Future Implementation)
+
+1. **Change Monitor** (`orion_ai/change_monitor/`): Detect changes in network behavior
+2. **Host Logs** (`orion_ai/host_logs/`): Normalize syslog/auth logs
+3. **Honeypot** (`orion_ai/honeypot/`): Manage honeypot services
+
+## Service Orchestration
+
+All services can run independently or together:
+
+### Option 1: Single Container (Development)
+
+Run all services in one container with separate threads/processes:
+
+```python
+# main.py
+import threading
+
+# Start inventory service
+inventory_thread = threading.Thread(target=inventory_service.run_loop)
+inventory_thread.start()
+
+# Start SOAR service
+soar_thread = threading.Thread(target=soar_service.run_loop)
+soar_thread.start()
+
+# Start health score service
+health_thread = threading.Thread(target=health_service.run_loop)
+health_thread.start()
+
+# Start web UI (blocking)
+uvicorn.run(app, host="0.0.0.0", port=8080)
+```
+
+### Option 2: Multiple Containers (Production)
+
+Separate containers for each service:
+
+```yaml
+services:
+  ai-detection:
+    command: python main.py --mode batch
+  
+  inventory:
+    command: python -m orion_ai.inventory.service
+  
+  soar:
+    command: python -m orion_ai.soar.service
+  
+  health-score:
+    command: python -m orion_ai.health_score.service
+  
+  web-ui:
+    command: uvicorn orion_ai.ui.api:app --host 0.0.0.0 --port 8080
+```
+
+## Event Stream Architecture
+
+All modules emit events to Loki under the unified stream `stream="events"`:
+
+```
+┌─────────────┐
+│  Inventory  │──┐
+└─────────────┘  │
+                 │
+┌─────────────┐  │    ┌──────┐    ┌──────────┐
+│     AI      │──┼───▶│ Loki │───▶│  SOAR    │
+└─────────────┘  │    └──────┘    └──────────┘
+                 │       │               │
+┌─────────────┐  │       │         ┌──────────┐
+│ Threat Intel│──┘       │         │  Actions │
+└─────────────┘          │         └──────────┘
+                         ▼
+                  ┌────────────┐
+                  │   Web UI   │
+                  └────────────┘
+```
+
+Event types:
+- `intel_match`: Threat intelligence correlation hit
+- `device_anomaly`: Anomalous device behavior detected
+- `domain_risk`: High-risk domain detected
+- `new_device`: New device discovered
+- `honeypot_hit`: Honeypot access attempt
+- `change_event`: Significant behavior change
+- `soar_action`: Automated action executed
+- `security_health_update`: Health score update
+
+## Data Storage
+
+### Persistent Storage
+
+- **Device Inventory**: `/var/lib/orion-ai/devices.db` (SQLite)
+- **Threat Intel Cache**: `/var/lib/orion-ai/threat_intel.db` (SQLite)
+- **Playbooks**: `/etc/orion-ai/playbooks.yml` (YAML)
+- **Configuration**: `/stacks/ai/.env` (Environment)
+
+### Ephemeral Storage
+
+- **Loki**: Configurable retention (default: 30 days)
+- **Event Stream**: In-memory processing with Loki persistence
+
+## Security Considerations
+
+1. **No Direct Blocking**: Pi #2 cannot block traffic directly (passive monitoring only)
+2. **API-Based Enforcement**: Blocking happens via Pi-hole API on Pi #1
+3. **Dry-Run Mode**: SOAR supports dry-run testing before live execution
+4. **Event Logging**: All actions are logged for audit trails
+5. **Local Processing**: All AI inference happens locally (no cloud dependencies)
+6. **Secrets Management**: Sensitive config via environment variables (not committed)
+
+## Performance Tuning
+
+### Raspberry Pi 5 Optimization
+
+- **AI Hat**: Offloads inference to dedicated NPU (~13 TOPS)
+- **Batch Processing**: Reduces Loki query frequency
+- **SQLite**: Lightweight persistence without heavy database overhead
+- **Selective Logging**: Only log high-value events to reduce storage
+- **Efficient Queries**: Use Loki labels for fast filtering
+
+### Recommended Intervals
+
+- Inventory Service: 10 minutes
+- SOAR Service: 5 minutes
+- Health Score: 60 minutes
+- AI Detection: 10 minutes (device), 60 minutes (domain)
+- Threat Intel Refresh: 6 hours
+
+## Future Enhancements
+
+- [ ] Support for multiple Loki instances (federated logs)
+- [ ] Machine learning model auto-retraining
+- [ ] Advanced change detection with baselining
+- [ ] Integration with external SIEM/SOAR platforms
+- [ ] Mobile app for alerts
+- [ ] Voice assistant integration (Alexa, Google Home)
