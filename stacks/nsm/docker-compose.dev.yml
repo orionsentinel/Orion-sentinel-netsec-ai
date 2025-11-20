@@ -1,0 +1,88 @@
+# Orion Sentinel NSM Stack - Development Mode
+# For local development and testing with sample data
+
+version: '3.8'
+
+services:
+  # Loki - Log aggregation and storage
+  loki:
+    image: grafana/loki:2.9.3
+    container_name: orion-loki-dev
+    ports:
+      - "3100:3100"  # HTTP API
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-dev-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+    networks:
+      - orion-dev
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Grafana - Visualization and dashboards
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: orion-grafana-dev
+    ports:
+      - "3000:3000"  # Web UI
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../../config/grafana:/etc/grafana/dashboards:ro
+      - grafana-dev-data:/var/lib/grafana
+    depends_on:
+      - loki
+    restart: unless-stopped
+    networks:
+      - orion-dev
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Log Injector - Reads sample data and pushes to Loki
+  log-injector:
+    image: python:3.11-slim
+    container_name: orion-log-injector
+    working_dir: /app
+    volumes:
+      - ../../samples:/samples:ro
+      - ./log-injector:/app:ro
+    command: >
+      sh -c "pip install --no-cache-dir requests &&
+             python /app/inject_logs.py"
+    environment:
+      - LOKI_URL=http://loki:3100
+      - SAMPLES_DIR=/samples
+      - INJECT_INTERVAL=30
+      - LOG_LEVEL=INFO
+    depends_on:
+      - loki
+    restart: unless-stopped
+    networks:
+      - orion-dev
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  loki-dev-data:
+    name: orion-loki-dev-data
+  grafana-dev-data:
+    name: orion-grafana-dev-data
+
+networks:
+  orion-dev:
+    name: orion-dev-network
+    driver: bridge

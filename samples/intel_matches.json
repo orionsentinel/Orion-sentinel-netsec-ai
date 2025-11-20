@@ -1,0 +1,117 @@
+[
+  {
+    "timestamp": "2024-01-15T10:30:00Z",
+    "match_type": "domain",
+    "indicator": "malicious-c2-server.evil",
+    "source": "alienvault_otx",
+    "threat_type": "C2",
+    "confidence": 0.95,
+    "context": {
+      "pulse_name": "APT28 Infrastructure",
+      "pulse_id": "abc123def456",
+      "tags": ["apt28", "c2", "russia"]
+    },
+    "observed_in": {
+      "log_type": "dns",
+      "client_ip": "192.168.1.150",
+      "query": "malicious-c2-server.evil"
+    }
+  },
+  {
+    "timestamp": "2024-01-15T10:35:00Z",
+    "match_type": "ip",
+    "indicator": "203.0.113.42",
+    "source": "feodo_tracker",
+    "threat_type": "botnet",
+    "confidence": 0.98,
+    "context": {
+      "malware_family": "Emotet",
+      "first_seen": "2024-01-10",
+      "last_seen": "2024-01-15"
+    },
+    "observed_in": {
+      "log_type": "suricata_alert",
+      "src_ip": "192.168.1.50",
+      "dest_ip": "203.0.113.42",
+      "dest_port": 443
+    }
+  },
+  {
+    "timestamp": "2024-01-15T10:40:00Z",
+    "match_type": "domain",
+    "indicator": "example-suspicious-domain.com",
+    "source": "urlhaus",
+    "threat_type": "malware_distribution",
+    "confidence": 0.92,
+    "context": {
+      "url": "http://example-suspicious-domain.com/download/payload.exe",
+      "malware_type": "trojan",
+      "status": "online",
+      "reporter": "abuse_ch"
+    },
+    "observed_in": {
+      "log_type": "suricata_http",
+      "src_ip": "192.168.1.100",
+      "http_url": "/download/payload.exe",
+      "http_method": "GET"
+    }
+  },
+  {
+    "timestamp": "2024-01-15T10:45:00Z",
+    "match_type": "ip",
+    "indicator": "185.220.101.1",
+    "source": "alienvault_otx",
+    "threat_type": "tor_exit_node",
+    "confidence": 0.99,
+    "context": {
+      "pulse_name": "Tor Exit Nodes - Daily Update",
+      "pulse_id": "tor123",
+      "tags": ["tor", "anonymization"]
+    },
+    "observed_in": {
+      "log_type": "suricata_flow",
+      "src_ip": "192.168.1.75",
+      "dest_ip": "185.220.101.1",
+      "dest_port": 9001
+    }
+  },
+  {
+    "timestamp": "2024-01-15T10:50:00Z",
+    "match_type": "domain",
+    "indicator": "known-malware-c2.evil",
+    "source": "phishtank",
+    "threat_type": "phishing",
+    "confidence": 0.88,
+    "context": {
+      "phish_id": "12345678",
+      "target_brand": "banking",
+      "verified": true,
+      "submission_time": "2024-01-14T18:00:00Z"
+    },
+    "observed_in": {
+      "log_type": "dns",
+      "client_ip": "192.168.1.200",
+      "query": "known-malware-c2.evil"
+    }
+  },
+  {
+    "timestamp": "2024-01-15T10:55:00Z",
+    "match_type": "hash",
+    "indicator": "5d41402abc4b2a76b9719d911017c592",
+    "source": "urlhaus",
+    "threat_type": "malware",
+    "confidence": 0.97,
+    "context": {
+      "hash_type": "md5",
+      "malware_family": "Zeus",
+      "file_type": "exe",
+      "signature": "Trojan.Win32.Zeus"
+    },
+    "observed_in": {
+      "log_type": "file_transfer",
+      "src_ip": "192.168.1.100",
+      "filename": "invoice.exe",
+      "size": 524288
+    }
+  }
+]

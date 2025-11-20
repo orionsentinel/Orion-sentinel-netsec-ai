@@ -110,3 +110,10 @@ temp/
 
 # OS
 Thumbs.db
+
+# Backups (created by backup-all.sh)
+backups/
+
+# Data directories (state, inventory, etc.)
+data/
+var/

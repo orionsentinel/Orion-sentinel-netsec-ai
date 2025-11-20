@@ -1,0 +1,158 @@
+{
+  "timestamp": "2024-01-15T10:30:45.123456+0000",
+  "flow_id": 1234567890,
+  "event_type": "alert",
+  "src_ip": "192.168.1.50",
+  "src_port": 54321,
+  "dest_ip": "203.0.113.42",
+  "dest_port": 443,
+  "proto": "TCP",
+  "alert": {
+    "action": "allowed",
+    "gid": 1,
+    "signature_id": 2100498,
+    "rev": 8,
+    "signature": "GPL ATTACK_RESPONSE id check returned root",
+    "category": "Potentially Bad Traffic",
+    "severity": 2
+  },
+  "flow": {
+    "pkts_toserver": 5,
+    "pkts_toclient": 4,
+    "bytes_toserver": 512,
+    "bytes_toclient": 1024,
+    "start": "2024-01-15T10:30:40.000000+0000"
+  }
+}
+{
+  "timestamp": "2024-01-15T10:32:15.456789+0000",
+  "flow_id": 1234567891,
+  "event_type": "alert",
+  "src_ip": "192.168.1.75",
+  "src_port": 49152,
+  "dest_ip": "185.220.101.1",
+  "dest_port": 9001,
+  "proto": "TCP",
+  "alert": {
+    "action": "allowed",
+    "gid": 1,
+    "signature_id": 2025329,
+    "rev": 1,
+    "signature": "ET TOR Known Tor Exit Node Traffic",
+    "category": "Misc Attack",
+    "severity": 2
+  },
+  "flow": {
+    "pkts_toserver": 12,
+    "pkts_toclient": 10,
+    "bytes_toserver": 2048,
+    "bytes_toclient": 4096,
+    "start": "2024-01-15T10:32:10.000000+0000"
+  }
+}
+{
+  "timestamp": "2024-01-15T10:35:22.789012+0000",
+  "flow_id": 1234567892,
+  "event_type": "alert",
+  "src_ip": "192.168.1.100",
+  "src_port": 52000,
+  "dest_ip": "198.51.100.50",
+  "dest_port": 80,
+  "proto": "TCP",
+  "alert": {
+    "action": "allowed",
+    "gid": 1,
+    "signature_id": 2013028,
+    "rev": 6,
+    "signature": "ET POLICY Possible Suspicious User-Agent",
+    "category": "Potentially Bad Traffic",
+    "severity": 3
+  },
+  "flow": {
+    "pkts_toserver": 3,
+    "pkts_toclient": 2,
+    "bytes_toserver": 256,
+    "bytes_toclient": 512,
+    "start": "2024-01-15T10:35:20.000000+0000"
+  },
+  "http": {
+    "hostname": "example-suspicious-domain.com",
+    "url": "/download/payload.exe",
+    "http_user_agent": "Mozilla/5.0 (compatible; Suspicious/1.0)",
+    "http_method": "GET",
+    "protocol": "HTTP/1.1",
+    "status": 200,
+    "length": 1024
+  }
+}
+{
+  "timestamp": "2024-01-15T10:40:00.000000+0000",
+  "flow_id": 1234567893,
+  "event_type": "dns",
+  "src_ip": "192.168.1.150",
+  "src_port": 53241,
+  "dest_ip": "8.8.8.8",
+  "dest_port": 53,
+  "proto": "UDP",
+  "dns": {
+    "type": "query",
+    "id": 12345,
+    "rrname": "malicious-c2-server.evil",
+    "rrtype": "A",
+    "tx_id": 0
+  }
+}
+{
+  "timestamp": "2024-01-15T10:41:30.123456+0000",
+  "flow_id": 1234567894,
+  "event_type": "alert",
+  "src_ip": "192.168.1.200",
+  "src_port": 22,
+  "dest_ip": "203.0.113.99",
+  "dest_port": 54321,
+  "proto": "TCP",
+  "alert": {
+    "action": "allowed",
+    "gid": 1,
+    "signature_id": 2001219,
+    "rev": 20,
+    "signature": "ET SCAN Potential SSH Scan",
+    "category": "Attempted Information Leak",
+    "severity": 2
+  },
+  "flow": {
+    "pkts_toserver": 1,
+    "pkts_toclient": 0,
+    "bytes_toserver": 64,
+    "bytes_toclient": 0,
+    "start": "2024-01-15T10:41:30.000000+0000"
+  },
+  "ssh": {
+    "client": {
+      "proto_version": "2.0",
+      "software_version": "OpenSSH_8.2"
+    }
+  }
+}
+{
+  "timestamp": "2024-01-15T10:45:00.000000+0000",
+  "flow_id": 1234567895,
+  "event_type": "flow",
+  "src_ip": "192.168.1.50",
+  "src_port": 12345,
+  "dest_ip": "93.184.216.34",
+  "dest_port": 443,
+  "proto": "TCP",
+  "flow": {
+    "pkts_toserver": 100,
+    "pkts_toclient": 95,
+    "bytes_toserver": 51200,
+    "bytes_toclient": 102400,
+    "start": "2024-01-15T10:30:00.000000+0000",
+    "end": "2024-01-15T10:45:00.000000+0000",
+    "age": 900,
+    "state": "closed",
+    "reason": "shutdown"
+  },
+  "app_proto": "tls"
+}

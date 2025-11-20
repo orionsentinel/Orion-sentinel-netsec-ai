@@ -249,6 +249,60 @@ curl -X POST http://localhost:8000/assistant/query \
 - [ ] Monitoring dashboards configured
 - [ ] Team trained on SOAR interface
 
+## Operations
+
+### Backup & Restore
+
+Orion Sentinel includes automated backup and restore scripts to protect your configuration and data.
+
+**Create a backup:**
+```bash
+./scripts/backup-all.sh
+```
+
+Backups are stored in `backups/backup_<timestamp>/` and include:
+- Device inventory database
+- Configuration files and playbooks
+- Environment variables
+- Grafana dashboard configs
+
+**Restore from backup:**
+```bash
+./scripts/restore-all.sh backups/backup_20250115_103045
+```
+
+See [Operations Guide](docs/operations.md) for detailed backup/restore procedures.
+
+### Upgrades
+
+Safely upgrade the system with automated backup and rollback capability:
+
+```bash
+./scripts/upgrade.sh
+```
+
+The upgrade script:
+1. Creates a backup automatically
+2. Pulls latest code from git
+3. Updates Docker images
+4. Restarts services
+5. Verifies service status
+
+See [Upgrade Procedure](docs/operations.md#upgrade-procedure) for details.
+
+### Security & Threat Model
+
+Review the threat model and hardening recommendations:
+
+- [Threat Model](docs/threat-model.md): Security assumptions, attack scenarios, and mitigations
+- [Hardening Guide](docs/threat-model.md#mitigations--hardening): Network, application, and system hardening
+
+**Quick security checklist:**
+- Change default Grafana password
+- Configure firewall rules (ufw)
+- Enable SOAR dry-run mode initially
+- Restrict management interfaces to LAN/VPN only
+
 ## Contributing
 
 This is a personal home/lab project, but suggestions and feedback are welcome via issues.
