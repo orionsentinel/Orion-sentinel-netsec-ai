@@ -145,6 +145,27 @@ async def events_page(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/playbooks", response_class=HTMLResponse)
+async def playbooks_page(request: Request):
+    """
+    SOAR playbooks management page.
+    
+    Shows all playbooks with their status and allows toggling them.
+    """
+    try:
+        playbooks_data = views.get_playbooks_view()
+        return templates.TemplateResponse(
+            "playbooks.html",
+            {
+                "request": request,
+                **playbooks_data
+            }
+        )
+    except Exception as e:
+        logger.error(f"Playbooks page error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     """
@@ -329,6 +350,92 @@ async def api_config():
         }
     except Exception as e:
         logger.error(f"API config error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/playbooks")
+async def api_playbooks():
+    """
+    Get list of all playbooks.
+    
+    Returns:
+        List of playbooks with their configuration
+    """
+    try:
+        playbooks_data = views.get_playbooks_view()
+        playbooks = playbooks_data.get("playbooks", [])
+        
+        # Convert to JSON-serializable format
+        playbooks_json = []
+        for pb in playbooks:
+            playbooks_json.append(pb.to_dict())
+        
+        return {
+            "playbooks": playbooks_json,
+            "count": len(playbooks),
+            "enabled_count": playbooks_data.get("enabled_count", 0),
+            "disabled_count": playbooks_data.get("disabled_count", 0),
+            "dry_run_count": playbooks_data.get("dry_run_count", 0),
+        }
+    except Exception as e:
+        logger.error(f"API playbooks error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/playbooks/{playbook_id}")
+async def api_playbook(playbook_id: str):
+    """
+    Get details of a specific playbook.
+    
+    Args:
+        playbook_id: Playbook identifier
+        
+    Returns:
+        Playbook details
+    """
+    try:
+        playbook = views.get_playbook(playbook_id)
+        if not playbook:
+            raise HTTPException(status_code=404, detail="Playbook not found")
+        
+        return playbook.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"API playbook error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/playbooks/{playbook_id}/toggle")
+async def api_toggle_playbook(playbook_id: str, request: Request):
+    """
+    Toggle a playbook enabled/disabled.
+    
+    Args:
+        playbook_id: Playbook identifier
+        request: Request with JSON body {"enabled": true/false}
+        
+    Returns:
+        Updated playbook data
+    """
+    try:
+        body = await request.json()
+        enabled = body.get("enabled", True)
+        
+        success = views.toggle_playbook(playbook_id, enabled)
+        if not success:
+            raise HTTPException(status_code=404, detail="Playbook not found")
+        
+        # Get updated playbook
+        playbook = views.get_playbook(playbook_id)
+        return {
+            "success": True,
+            "playbook": playbook.to_dict() if playbook else None
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"API toggle playbook error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

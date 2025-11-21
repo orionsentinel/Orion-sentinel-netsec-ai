@@ -5,7 +5,10 @@ Functions that query data and prepare view models for templates.
 """
 
 import logging
+import os
+import yaml
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 from orion_ai.core.loki_client import LokiClient
@@ -13,6 +16,7 @@ from orion_ai.core.models import Event, EventType, EventSeverity
 from orion_ai.health_score.calculator import HealthScoreCalculator
 from orion_ai.health_score.service import HealthScoreService
 from orion_ai.inventory.store import DeviceStore
+from orion_ai.soar.models import Playbook
 
 logger = logging.getLogger(__name__)
 
@@ -281,3 +285,147 @@ def _build_device_timeline(device, events: List[Dict]) -> List[Dict[str, Any]]:
     timeline.sort(key=lambda x: x["timestamp"], reverse=True)
     
     return timeline
+
+
+def get_playbooks_view() -> Dict[str, Any]:
+    """
+    Get playbooks data for playbooks page.
+    
+    Returns:
+        Dictionary with playbooks and statistics
+    """
+    playbooks = _load_playbooks()
+    
+    # Calculate stats
+    enabled_count = sum(1 for pb in playbooks if pb.enabled)
+    disabled_count = sum(1 for pb in playbooks if not pb.enabled)
+    dry_run_count = sum(1 for pb in playbooks if pb.dry_run)
+    
+    return {
+        "playbooks": playbooks,
+        "enabled_count": enabled_count,
+        "disabled_count": disabled_count,
+        "dry_run_count": dry_run_count,
+    }
+
+
+def get_playbook(playbook_id: str) -> Optional[Playbook]:
+    """
+    Get a specific playbook by ID.
+    
+    Args:
+        playbook_id: Playbook identifier
+        
+    Returns:
+        Playbook object or None if not found
+    """
+    playbooks = _load_playbooks()
+    
+    for pb in playbooks:
+        if pb.id == playbook_id:
+            return pb
+    
+    return None
+
+
+def toggle_playbook(playbook_id: str, enabled: bool) -> bool:
+    """
+    Toggle a playbook enabled/disabled state.
+    
+    Updates the playbooks.yml file with the new state.
+    
+    Args:
+        playbook_id: Playbook identifier
+        enabled: New enabled state
+        
+    Returns:
+        True if successful, False if playbook not found
+    """
+    playbooks_file = _get_playbooks_file_path()
+    
+    try:
+        # Load YAML
+        with open(playbooks_file, 'r') as f:
+            data = yaml.safe_load(f)
+        
+        # Find and update playbook
+        found = False
+        playbooks_list = data.get('playbooks', [])
+        for pb_dict in playbooks_list:
+            if pb_dict.get('id') == playbook_id:
+                pb_dict['enabled'] = enabled
+                found = True
+                break
+        
+        if not found:
+            return False
+        
+        # Write back
+        with open(playbooks_file, 'w') as f:
+            yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
+        
+        logger.info(f"Playbook {playbook_id} {'enabled' if enabled else 'disabled'}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to toggle playbook: {e}")
+        return False
+
+
+def _get_playbooks_file_path() -> Path:
+    """Get path to playbooks.yml file."""
+    # Check environment variable first
+    playbooks_file = os.getenv("SOAR_PLAYBOOKS_FILE")
+    if playbooks_file:
+        return Path(playbooks_file)
+    
+    # Default paths to check
+    possible_paths = [
+        Path("/config/playbooks.yml"),
+        Path("./config/playbooks.yml"),
+        Path("./stacks/ai/config/playbooks.yml"),
+        Path(__file__).parent.parent.parent / "config" / "playbooks.yml",
+    ]
+    
+    for path in possible_paths:
+        if path.exists():
+            return path
+    
+    # No playbooks file found - raise error with helpful message
+    logger.error(
+        "Playbooks file not found. Checked paths: " +
+        ", ".join(str(p) for p in possible_paths)
+    )
+    raise FileNotFoundError(
+        "Playbooks file not found. Set SOAR_PLAYBOOKS_FILE environment variable "
+        "or place playbooks.yml in one of the default locations."
+    )
+
+
+def _load_playbooks() -> List[Playbook]:
+    """
+    Load playbooks from playbooks.yml.
+    
+    Returns:
+        List of Playbook objects
+    """
+    playbooks_file = _get_playbooks_file_path()
+    
+    try:
+        with open(playbooks_file, 'r') as f:
+            data = yaml.safe_load(f)
+        
+        playbooks_list = data.get('playbooks', [])
+        playbooks = [Playbook.from_dict(pb) for pb in playbooks_list]
+        
+        # Sort by priority (descending)
+        playbooks.sort(key=lambda x: x.priority, reverse=True)
+        
+        return playbooks
+        
+    except FileNotFoundError:
+        logger.warning(f"Playbooks file not found: {playbooks_file}")
+        return []
+    except Exception as e:
+        logger.error(f"Failed to load playbooks: {e}")
+        return []
