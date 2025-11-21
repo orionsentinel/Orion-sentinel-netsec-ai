@@ -373,7 +373,7 @@ class PhishTankFetcher:
             api_key: Optional API key for higher rate limits
         """
         self.api_key = api_key
-        self.feed_url = "http://data.phishtank.com/data/online-valid.json"
+        self.feed_url = "https://data.phishtank.com/data/online-valid.json"
         self.headers = {
             "User-Agent": "Orion-Sentinel-ThreatIntel/1.0"
         }

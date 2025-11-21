@@ -126,13 +126,13 @@ class ThreatIntelLookup:
         results = self.store.bulk_lookup(IOCType.DOMAIN, domains)
         
         # Convert to more usable format
+        # Create reverse mapping for case-insensitive match
+        domain_lower_map = {d.lower(): d for d in domains}
+        
         matches = {}
         for domain_lower, (ioc_id, confidence, source) in results.items():
-            # Find original domain (case-insensitive)
-            original_domain = next(
-                (d for d in domains if d.lower() == domain_lower),
-                domain_lower
-            )
+            # Get original domain (case-preserved)
+            original_domain = domain_lower_map.get(domain_lower, domain_lower)
             matches[original_domain] = {
                 "ioc_id": ioc_id,
                 "value": original_domain,

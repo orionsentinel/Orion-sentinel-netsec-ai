@@ -391,8 +391,15 @@ def _get_playbooks_file_path() -> Path:
         if path.exists():
             return path
     
-    # Return first default if none found (will error on read)
-    return possible_paths[0]
+    # No playbooks file found - raise error with helpful message
+    logger.error(
+        "Playbooks file not found. Checked paths: " +
+        ", ".join(str(p) for p in possible_paths)
+    )
+    raise FileNotFoundError(
+        "Playbooks file not found. Set SOAR_PLAYBOOKS_FILE environment variable "
+        "or place playbooks.yml in one of the default locations."
+    )
 
 
 def _load_playbooks() -> List[Playbook]:
