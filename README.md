@@ -11,12 +11,34 @@ Orion Sentinel is a comprehensive security monitoring platform combining network
 - Event-driven actions (blocking, tagging, notifications)
 - Safety controls (dry-run mode, priorities)
 - Integration with Pi-hole for DNS blocking
+- **Web UI for playbook management** - [Guide](docs/web-ui.md)
+
+### 📢 Multi-Channel Notifications
+- **Email** (SMTP)
+- **Signal** (via signal-cli)
+- **Telegram** (Bot API)
+- **Webhooks** (custom integrations)
+- Rich alert formatting with threat context - [Setup Guide](docs/notifications.md)
+
+### 🛡️ Threat Intelligence Integration
+- **AlienVault OTX** - Community threat exchange
+- **abuse.ch URLhaus** - Malicious URL tracking
+- **abuse.ch Feodo Tracker** - Botnet C2 servers
+- **PhishTank** - Verified phishing sites
+- Automatic IOC enrichment and risk scoring - [Integration Guide](docs/threat-intel.md)
 
 ### 📊 Device Inventory & Fingerprinting
 - Automatic device discovery
 - Type classification (IoT, TV, NAS, etc.)
 - Tagging and metadata management
 - Risk scoring
+
+### 🌐 Web Dashboard
+- **Dashboard**: Health score and security overview
+- **Events**: Searchable security event log with filters
+- **Devices**: Complete asset inventory
+- **Playbooks**: SOAR playbook management
+- JSON REST APIs for all pages - [UI Guide](docs/web-ui.md)
 
 ### 🖥️ EDR-lite (Host Log Integration)
 - Wazuh, osquery, syslog support
@@ -42,11 +64,6 @@ Orion Sentinel is a comprehensive security monitoring platform combining network
 - Safe testing environment
 - Device-based policy segregation
 - Production protection
-
-### 🌐 REST API
-- Device profile endpoints
-- Natural language assistant (pattern-based)
-- Timeline views
 
 ### 📊 Grafana Dashboards
 - **SOC Management Dashboard**: Executive overview with health score, key metrics, and recent events
@@ -94,16 +111,17 @@ Orion Sentinel is a comprehensive security monitoring platform combining network
    cd Orion-sentinel-netsec-ai
    ```
 
-2. **Configure playbooks**:
+2. **Configure environment**:
    ```bash
-   cp config/playbooks.yml.example config/playbooks.yml
-   # Edit playbooks.yml for your environment
+   cp .env.example .env
+   # Edit .env with your settings (notifications, threat intel, Pi-hole, etc.)
    ```
 
-3. **Set environment variables**:
+3. **Configure playbooks** (optional):
    ```bash
-   export PIHOLE_API_KEY="your-api-key"
-   export GRAFANA_ADMIN_PASSWORD="secure-password"
+   # Playbooks come with sensible defaults
+   # Edit if you need custom automation
+   nano stacks/ai/config/playbooks.yml
    ```
 
 4. **Start services**:
@@ -112,10 +130,16 @@ Orion Sentinel is a comprehensive security monitoring platform combining network
    docker-compose up -d
    ```
 
-5. **Access interfaces**:
-   - Grafana: http://localhost:3000
-   - API: http://localhost:8000
-   - API Docs: http://localhost:8000/docs
+5. **Initialize threat intelligence** (optional):
+   ```bash
+   # Fetch latest threat intel IOCs
+   docker-compose exec ai-service python -m orion_ai.threat_intel.sync --hours 168
+   ```
+
+6. **Access interfaces**:
+   - **Web UI**: http://localhost:8080 (Dashboard, Events, Devices, Playbooks)
+   - **Grafana**: http://localhost:3000 (Analytics & Dashboards)
+   - **API Docs**: http://localhost:8080/docs (OpenAPI/Swagger)
 
 ### Development Setup
 
@@ -134,34 +158,46 @@ python -m orion_ai.health_score.service
 
 ## Configuration
 
-### SOAR Service
+All configuration is via environment variables in `.env` file. See [.env.example](.env.example) for all options.
 
-Key environment variables:
+### Key Settings
 
-- `SOAR_DRY_RUN=1`: Enable dry run mode (recommended initially)
-- `SOAR_POLL_INTERVAL=60`: Polling interval in seconds
-- `SOAR_PLAYBOOKS_FILE=/config/playbooks.yml`: Playbook configuration
-- `PIHOLE_URL=http://192.168.1.2`: Pi-hole instance URL
-- `PIHOLE_API_KEY=xxx`: Pi-hole API key
+**SOAR Automation:**
+- `SOAR_DRY_RUN=1` - Enable dry run mode (recommended initially)
+- `SOAR_POLL_INTERVAL=60` - Event polling interval in seconds
 
-### Inventory Service
+**Notifications** ([Setup Guide](docs/notifications.md)):
+- `NOTIFY_SMTP_HOST` / `NOTIFY_SMTP_USER` / `NOTIFY_SMTP_PASS` - Email via SMTP
+- `NOTIFY_SIGNAL_ENABLED` / `NOTIFY_SIGNAL_API_URL` - Signal messenger
+- `NOTIFY_TELEGRAM_ENABLED` / `NOTIFY_TELEGRAM_BOT_TOKEN` - Telegram bot
 
-- `INVENTORY_POLL_INTERVAL=300`: Update interval in seconds
-- `INVENTORY_DB_PATH=/data/inventory.db`: SQLite database path
+**Threat Intelligence** ([Integration Guide](docs/threat-intel.md)):
+- `TI_ENABLE_OTX=true` / `TI_OTX_API_KEY` - AlienVault OTX
+- `TI_ENABLE_URLHAUS=true` - abuse.ch URLhaus
+- `TI_ENABLE_FEODO=true` - abuse.ch Feodo Tracker
+- `TI_ENABLE_PHISHTANK=true` - PhishTank
 
-### Other Services
+**Pi-hole Integration:**
+- `PIHOLE_URL=http://192.168.1.2` - Pi-hole instance URL
+- `PIHOLE_API_KEY=xxx` - Pi-hole API key for blocking
 
-- `LOKI_URL=http://loki:3100`: Loki instance URL
-- `LOG_LEVEL=INFO`: Logging level
+**Web UI:**
+- `API_HOST=0.0.0.0` / `API_PORT=8080` - Web interface binding
 
-See individual service documentation for details.
+See [.env.example](.env.example) for complete configuration options.
 
 ## Documentation
 
+### Core Features
 - [SOAR Playbooks](docs/soar.md)
+- [Notifications & Alerts](docs/notifications.md) 📢 **NEW**
+- [Threat Intelligence](docs/threat-intel.md) 🛡️ **NEW**
+- [Web Dashboard](docs/web-ui.md) 🌐 **NEW**
 - [Device Inventory](docs/inventory.md)
 - [Change Monitor](docs/change-monitor.md)
 - [Health Score](docs/health-score.md)
+
+### Additional
 - [Lab Mode](docs/lab-mode.md)
 - [Host Logs (EDR-lite)](docs/host-logs.md)
 - [Honeypot Integration](src/orion_ai/honeypot/design.md)
@@ -171,63 +207,102 @@ See individual service documentation for details.
 
 ```
 src/orion_ai/
-├── soar/              # SOAR automation
-│   ├── models.py      # Data models
-│   ├── engine.py      # Playbook engine
-│   ├── actions.py     # Action executors
-│   └── service.py     # SOAR service
-├── inventory/         # Device inventory
+├── soar/                  # SOAR automation
+│   ├── models.py          # Data models
+│   ├── engine.py          # Playbook engine
+│   ├── actions.py         # Action executors
+│   └── service.py         # SOAR service
+├── notifications/         # 📢 Multi-channel alerts
+│   ├── models.py          # Notification data models
+│   ├── providers.py       # Email, Signal, Telegram, Webhook
+│   ├── dispatcher.py      # Notification routing
+│   └── formatters.py      # Event to notification conversion
+├── threat_intel/          # 🛡️ Threat intelligence
+│   ├── ioc_models.py      # IOC data models
+│   ├── ioc_fetchers.py    # OTX, URLhaus, Feodo, PhishTank
+│   ├── store.py           # SQLite IOC storage
+│   ├── lookup.py          # Fast IOC lookups
+│   └── sync.py            # Feed synchronization CLI
+├── inventory/             # Device inventory
 │   ├── models.py
-│   ├── collector.py   # Log collection
+│   ├── collector.py       # Log collection
 │   ├── fingerprinting.py
-│   ├── store.py       # SQLite storage
+│   ├── store.py           # SQLite storage
 │   └── service.py
-├── host_logs/         # EDR-lite
+├── ui/                    # 🌐 Web dashboard
+│   ├── api.py             # FastAPI routes
+│   ├── views.py           # View logic
+│   └── templates/         # HTML templates
+│       ├── dashboard.html
+│       ├── events.html
+│       ├── devices.html
+│       └── playbooks.html # Playbook management
+├── host_logs/             # EDR-lite
 │   ├── models.py
-│   └── normalizer.py  # Log normalization
-├── honeypot/          # Honeypot integration
+│   └── normalizer.py      # Log normalization
+├── honeypot/              # Honeypot integration
 │   └── design.md
-├── change_monitor/    # Change detection
+├── change_monitor/        # Change detection
 │   ├── models.py
 │   ├── baseline.py
 │   ├── analyzer.py
 │   └── service.py
-├── health_score/      # Security health score
-│   ├── models.py
-│   ├── calculator.py
-│   └── service.py
-└── ui/                # REST APIs
-    ├── device_profile_api.py
-    ├── assistant_api.py
-    └── http_server.py
+└── health_score/          # Security health score
+    ├── models.py
+    ├── calculator.py
+    └── service.py
 ```
 
 ## API Examples
 
-### Get Device Profile
+### Web UI Pages
 
 ```bash
-curl http://localhost:8000/device/192.168.1.50
+# Dashboard with health score and recent events
+http://localhost:8080/
+
+# Security events log (searchable, filterable)
+http://localhost:8080/events
+
+# Device inventory
+http://localhost:8080/devices
+
+# SOAR playbook management
+http://localhost:8080/playbooks
 ```
 
-### Get Device Timeline
+### JSON API Endpoints
 
 ```bash
-curl http://localhost:8000/device/192.168.1.50/timeline?hours=24
-```
+# Get recent events
+curl http://localhost:8080/api/events?limit=50&hours=24
 
-### Tag a Device
+# Get device list
+curl http://localhost:8080/api/devices
 
-```bash
-curl -X POST http://localhost:8000/device/192.168.1.50/tag?tag=lab
-```
+# Get device profile
+curl http://localhost:8080/api/device/192.168.1.50
 
-### Query Assistant
+# List playbooks
+curl http://localhost:8080/api/playbooks
 
-```bash
-curl -X POST http://localhost:8000/assistant/query \
+# Toggle playbook
+curl -X POST http://localhost:8080/api/playbooks/alert-high-risk-domain/toggle \
   -H "Content-Type: application/json" \
-  -d '{"question": "Show me suspicious activity from 192.168.1.50"}'
+  -d '{"enabled": false}'
+
+# Get health score
+curl http://localhost:8080/api/health
+```
+
+### Threat Intelligence CLI
+
+```bash
+# Sync threat intel feeds
+docker-compose exec ai-service python -m orion_ai.threat_intel.sync --hours 24
+
+# View IOC statistics
+docker-compose exec ai-service python -m orion_ai.threat_intel.sync --stats
 ```
 
 ## Safety & Testing
@@ -263,15 +338,27 @@ MIT License - See LICENSE file
 
 ## Roadmap
 
-- [ ] Complete Loki integration (query & push)
-- [ ] Pi-hole API client implementation
-- [ ] Notification channels (Signal, Telegram, Email)
-- [ ] Grafana dashboard templates
-- [ ] AI model integration (ONNX/TFLite)
-- [ ] Threat intel feed integration (abuse.ch, OTX)
+### ✅ v0.2 - SOC-in-a-Box (Current)
+- [x] Multi-channel notifications (Email, Signal, Telegram, Webhook)
+- [x] Threat intelligence integration (OTX, URLhaus, Feodo, PhishTank)
+- [x] Web UI for playbook management
+- [x] Event enrichment with TI context
+- [x] Comprehensive documentation
+
+### 🚧 v0.3 - AI & Detection (In Progress)
+- [ ] AI model integration (ONNX/TFLite on Pi AI Hat)
+- [ ] Domain risk scoring with ML
+- [ ] Device anomaly detection
 - [ ] Template variable resolution in playbooks
-- [ ] Web UI for playbook management
 - [ ] MITRE ATT&CK mapping
+
+### 📋 v0.4 - Advanced Features (Planned)
+- [ ] Pi-hole blocking automation (production-ready)
+- [ ] Advanced Grafana dashboards
+- [ ] Scheduled playbook execution
+- [ ] Incident management workflow
+- [ ] Custom threat intel feeds
+- [ ] API authentication
 
 ## Acknowledgments
 
