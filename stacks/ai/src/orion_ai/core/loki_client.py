@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Any
 import requests
 from requests.auth import HTTPBasicAuth
 
-from orion_ai.core.config import get_config
+from orion_ai.core.config import get_config, get_loki_url
 
 logger = logging.getLogger(__name__)
 
@@ -37,13 +37,13 @@ class LokiClient:
         Initialize Loki client.
         
         Args:
-            url: Loki HTTP API URL (default: from config)
+            url: Loki HTTP API URL (default: from LOKI_URL env or config)
             username: Optional HTTP basic auth username
             password: Optional HTTP basic auth password
             timeout: Request timeout in seconds
         """
-        config = get_config()
-        self.url = url or config.loki.url
+        # Use get_loki_url() helper which respects LOKI_URL env var
+        self.url = url or get_loki_url()
         self.username = username
         self.password = password
         self.timeout = timeout

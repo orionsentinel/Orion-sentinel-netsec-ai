@@ -1,5 +1,8 @@
 # Orion Sentinel NSM Stack
-# Network Security Monitoring with Suricata, Loki, Promtail, and Grafana
+# Network Security Monitoring with Suricata and Promtail
+# 
+# Normal SPoG mode: Suricata + Promtail only (logs to CoreSrv Loki)
+# Dev/lab mode: Use docker-compose.local-observability.yml for local Loki+Grafana
 
 version: '3.8'
 
@@ -26,58 +29,18 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Loki - Log aggregation and storage
-  loki:
-    image: grafana/loki:2.9.3
-    container_name: orion-loki
-    ports:
-      - "3100:3100"  # HTTP API
-    volumes:
-      - ./loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
-      - loki-data:/loki
-    command: -config.file=/etc/loki/local-config.yaml
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # Promtail - Log shipper for Suricata and AI logs
+  # Promtail - Log shipper for Suricata logs
+  # Ships to CoreSrv Loki in SPoG mode, or local Loki in dev mode
   promtail:
     image: grafana/promtail:2.9.3
     container_name: orion-promtail
+    environment:
+      - LOKI_URL=${LOKI_URL:-http://loki:3100}
     volumes:
       - ./promtail/promtail-config.yml:/etc/promtail/config.yml:ro
       - suricata-logs:/var/log/suricata:ro
       - /var/log:/host/logs:ro  # Optional: host system logs
-    command: -config.file=/etc/promtail/config.yml
-    depends_on:
-      - loki
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # Grafana - Visualization and dashboards
-  grafana:
-    image: grafana/grafana:10.2.3
-    container_name: orion-grafana
-    ports:
-      - "3000:3000"  # Web UI
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost:3000
-      - GF_ANALYTICS_REPORTING_ENABLED=false
-      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
-    volumes:
-      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
-      - grafana-data:/var/lib/grafana
-    depends_on:
-      - loki
+    command: -config.file=/etc/promtail/config.yml -config.expand-env=true
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -89,10 +52,6 @@ volumes:
   suricata-logs:
     driver: local
   suricata-rules:
-    driver: local
-  loki-data:
-    driver: local
-  grafana-data:
     driver: local
 
 networks:

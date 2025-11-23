@@ -9,7 +9,7 @@ services:
     container_name: orion-soar
     command: python -m orion_ai.soar.service
     environment:
-      - LOKI_URL=http://loki:3100
+      - LOKI_URL=${LOKI_URL}
       - SOAR_DRY_RUN=1
       - SOAR_POLL_INTERVAL=60
       - SOAR_PLAYBOOKS_FILE=/config/playbooks.yml
@@ -34,7 +34,7 @@ services:
     container_name: orion-inventory
     command: python -m orion_ai.inventory.service
     environment:
-      - LOKI_URL=http://loki:3100
+      - LOKI_URL=${LOKI_URL}
       - INVENTORY_POLL_INTERVAL=300
       - INVENTORY_DB_PATH=/data/inventory.db
       - LOG_LEVEL=INFO
@@ -54,7 +54,7 @@ services:
     container_name: orion-change-monitor
     command: python -m orion_ai.change_monitor.service
     environment:
-      - LOKI_URL=http://loki:3100
+      - LOKI_URL=${LOKI_URL}
       - CHANGE_MONITOR_INTERVAL_HOURS=24
       - CHANGE_MONITOR_PERIOD_DAYS=7
       - LOG_LEVEL=INFO
@@ -74,7 +74,7 @@ services:
     container_name: orion-health-score
     command: python -m orion_ai.health_score.service
     environment:
-      - LOKI_URL=http://loki:3100
+      - LOKI_URL=${LOKI_URL}
       - HEALTH_SCORE_INTERVAL_HOURS=1
       - LOG_LEVEL=INFO
     volumes:
@@ -86,6 +86,9 @@ services:
       - orion-network
 
   # API Server
+  # In normal SPoG mode, this UI is exposed via Traefik on CoreSrv
+  # as https://security.local, pointing to this service via LAN.
+  # Port 8000 should be accessible from CoreSrv's Traefik instance.
   api:
     build:
       context: ../..
@@ -96,7 +99,7 @@ services:
       - API_HOST=0.0.0.0
       - API_PORT=8000
       - API_RELOAD=false
-      - LOKI_URL=http://loki:3100
+      - LOKI_URL=${LOKI_URL}
       - LOG_LEVEL=INFO
     ports:
       - "8000:8000"

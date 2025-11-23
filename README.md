@@ -1,10 +1,56 @@
-# Orion Sentinel
+# Orion Sentinel - NetSec Node
 
-**AI-Assisted Network Security & SOAR for Home Labs and Small Offices**
+**AI-Powered Network Security Monitoring & Threat Detection for Home Labs**
 
-Orion Sentinel is your personal SOC-in-a-box: an open, hackable security monitoring and automation platform that runs on a Raspberry Pi or mini-PC. Built on Suricata, Loki, Grafana, and AI-powered detection, it bridges the gap between closed consumer appliances and heavyweight enterprise SOC platforms.
+Orion Sentinel NetSec is a network security sensor and AI-powered threat detection engine designed for home labs and small networks. This repository contains the **NetSec node** component that runs on a Raspberry Pi 5 or mini-PC.
 
-Perfect for home power users who want real network visibility, lab builders learning modern security stacks, and small offices needing simple but effective automated threat response—without the complexity or cost of enterprise solutions.
+## 🏗️ Architecture: Single Pane of Glass (SPoG)
+
+The Orion Sentinel platform consists of two main components:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   CoreSrv (Dell) - SPoG                         │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │  Single Pane of Glass - All Observability & Dashboards    │ │
+│  │  • Traefik + Authelia (SSO & reverse proxy)               │ │
+│  │  • Loki (central log aggregation)                          │ │
+│  │  • Prometheus (metrics collection)                         │ │
+│  │  • Grafana (all dashboards)                                │ │
+│  │  • Uptime-Kuma (service monitoring)                        │ │
+│  └────────────────────────────────────────────────────────────┘ │
+└──────────────────────────▲──────────────────────────────────────┘
+                           │
+                           │ Logs & Metrics
+                           │
+┌──────────────────────────┴──────────────────────────────────────┐
+│            NetSec Node (Pi 5) - This Repository                 │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │  Sensor + AI Engine (No Dashboards in Production)         │ │
+│  │  • Suricata IDS (passive monitoring)                       │ │
+│  │  • AI threat detection & correlation                       │ │
+│  │  • SOAR automation                                         │ │
+│  │  • Promtail (ships logs to CoreSrv)                        │ │
+│  │  • Web UI (exposed via CoreSrv Traefik)                    │ │
+│  └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Deployment Modes
+
+**🎯 SPoG Mode (Normal Operation)**:
+- NetSec = sensor + AI engine only
+- All logs shipped to CoreSrv Loki
+- All dashboards on CoreSrv Grafana
+- Web UI accessed via CoreSrv Traefik at `https://security.local`
+- No local Loki/Grafana on NetSec node
+
+**🧪 Standalone Mode (Development/Lab)**:
+- NetSec runs own Loki + Grafana
+- Useful for development, testing, and offline operation
+- Activated via `LOCAL_OBSERVABILITY=true` in `.env`
+
+See [CoreSrv Integration Guide](docs/CORESRV-INTEGRATION.md) for setup details.
 
 ## What Makes Orion Sentinel Different?
 
@@ -160,11 +206,16 @@ Everything flows through Loki and is visible in both Grafana (analytics) and the
 
 ### Prerequisites
 
-- Docker & Docker Compose
-- Python 3.9+ (for development)
-- Loki instance (included in docker-compose)
+- Raspberry Pi 5 (8GB) or mini-PC with Docker
+- Docker & Docker Compose installed
+- Network switch/router with port mirroring (SPAN) configured
+- CoreSrv running (for SPoG mode) OR standalone lab setup
 
 ### Installation
+
+#### SPoG Mode (Production - Recommended)
+
+Deploy NetSec as a sensor that reports to CoreSrv:
 
 1. **Clone repository**:
    ```bash
@@ -175,34 +226,86 @@ Everything flows through Loki and is visible in both Grafana (analytics) and the
 2. **Configure environment**:
    ```bash
    cp .env.example .env
-   # Edit .env with your settings (notifications, threat intel, Pi-hole, etc.)
+   nano .env
    ```
-
-3. **Configure playbooks** (optional):
+   
+   Set the following:
    ```bash
-   # Playbooks come with sensible defaults
-   # Edit if you need custom automation
-   nano stacks/ai/config/playbooks.yml
+   # Point to your CoreSrv Loki instance
+   LOKI_URL=http://192.168.8.XXX:3100  # Replace XXX with CoreSrv IP
+   LOCAL_OBSERVABILITY=false
+   
+   # Set network interface for Suricata (your mirrored port)
+   NSM_IFACE=eth0
+   
+   # Configure Pi-hole, notifications, etc. as needed
    ```
 
-4. **Start services**:
+3. **Start services**:
    ```bash
-   cd stacks/ai
-   docker-compose up -d
+   ./scripts/netsecctl.sh up-spog
    ```
 
-5. **Initialize threat intelligence** (optional):
+4. **Verify log shipping**:
    ```bash
-   # Fetch latest threat intel IOCs
-   docker-compose exec ai-service python -m orion_ai.threat_intel.sync --hours 168
+   docker logs orion-promtail | grep "POST"
+   # Should see: POST /loki/api/v1/push (200 OK)
    ```
 
-6. **Access interfaces**:
-   - **Web UI**: http://localhost:8080 (Dashboard, Events, Devices, Playbooks)
-   - **Grafana**: http://localhost:3000 (Analytics & Dashboards)
-   - **API Docs**: http://localhost:8080/docs (OpenAPI/Swagger)
+5. **Access via CoreSrv**:
+   - **Dashboards**: https://grafana.local (on CoreSrv)
+   - **NetSec Web UI**: https://security.local (via CoreSrv Traefik)
+   - **Logs**: Grafana Explore → `{host="pi-netsec"}`
+
+See [CoreSrv Integration Guide](docs/CORESRV-INTEGRATION.md) for detailed setup.
+
+#### Standalone Mode (Development/Lab)
+
+Run NetSec with local observability for development:
+
+1. **Clone and configure** (as above)
+
+2. **Set environment for standalone**:
+   ```bash
+   cp .env.example .env
+   nano .env
+   ```
+   
+   Set:
+   ```bash
+   LOKI_URL=http://loki:3100
+   LOCAL_OBSERVABILITY=true
+   ```
+
+3. **Start with local observability**:
+   ```bash
+   ./scripts/netsecctl.sh up-standalone
+   ```
+
+4. **Access local services**:
+   - **Grafana**: http://localhost:3000 (admin/admin)
+   - **NetSec Web UI**: http://localhost:8000
+   - **Loki API**: http://localhost:3100
+
+### Common Commands
+
+```bash
+# Check service status
+./scripts/netsecctl.sh status
+
+# View logs
+./scripts/netsecctl.sh logs
+
+# Stop all services
+./scripts/netsecctl.sh down
+
+# Get help
+./scripts/netsecctl.sh help
+```
 
 ### Development Setup
+
+For Python development:
 
 ```bash
 # Install dependencies
@@ -211,7 +314,7 @@ pip install -r requirements-dev.txt
 # Install package in editable mode
 pip install -e .
 
-# Run a service
+# Run individual services locally
 python -m orion_ai.soar.service
 python -m orion_ai.inventory.service
 python -m orion_ai.health_score.service
@@ -222,6 +325,10 @@ python -m orion_ai.health_score.service
 All configuration is via environment variables in `.env` file. See [.env.example](.env.example) for all options.
 
 ### Key Settings
+
+**Loki Connection** (SPoG Integration):
+- `LOKI_URL` - CoreSrv Loki URL (e.g., `http://192.168.8.XXX:3100`)
+- `LOCAL_OBSERVABILITY` - Enable local Loki+Grafana (`true`/`false`)
 
 **SOAR Automation:**
 - `SOAR_DRY_RUN=1` - Enable dry run mode (recommended initially)
@@ -249,20 +356,28 @@ See [.env.example](.env.example) for complete configuration options.
 
 ## Documentation
 
+### SPoG Integration
+- [CoreSrv Integration](docs/CORESRV-INTEGRATION.md) 🎯 **Integration Guide**
+- [CoreSrv Dashboards](docs/CORESRV-DASHBOARDS.md) 📊 **Dashboard Export**
+
 ### Core Features
 - [SOAR Playbooks](docs/soar.md)
-- [Notifications & Alerts](docs/notifications.md) 📢 **NEW**
-- [Threat Intelligence](docs/threat-intel.md) 🛡️ **NEW**
-- [Web Dashboard](docs/web-ui.md) 🌐 **NEW**
+- [Notifications & Alerts](docs/notifications.md) 📢
+- [Threat Intelligence](docs/threat-intel.md) 🛡️
+- [Web Dashboard](docs/web-ui.md) 🌐
 - [Device Inventory](docs/inventory.md)
 - [Change Monitor](docs/change-monitor.md)
 - [Health Score](docs/health-score.md)
+
+### Stacks & Setup
+- [NSM Stack](stacks/nsm/README.md) - Suricata + Promtail
+- [AI Stack](stacks/ai/README.md) - AI services
+- [Architecture](docs/architecture.md) - System design
 
 ### Additional
 - [Lab Mode](docs/lab-mode.md)
 - [Host Logs (EDR-lite)](docs/host-logs.md)
 - [Honeypot Integration](src/orion_ai/honeypot/design.md)
-- [Grafana Dashboards](config/grafana/README.md)
 
 ## Module Structure
 

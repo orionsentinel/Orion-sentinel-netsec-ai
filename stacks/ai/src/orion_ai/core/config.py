@@ -225,3 +225,17 @@ def reload_config() -> AppConfig:
     global _config
     _config = None
     return get_config()
+
+
+def get_loki_url() -> str:
+    """
+    Get the Loki URL from configuration.
+    
+    This is a convenience helper for components that need to connect to Loki.
+    In SPoG mode, this points to CoreSrv Loki (e.g., http://192.168.8.XXX:3100).
+    In dev/lab mode, this points to local Loki (http://loki:3100).
+    
+    Returns:
+        str: The Loki HTTP API URL
+    """
+    return os.getenv("LOKI_URL", "http://loki:3100")

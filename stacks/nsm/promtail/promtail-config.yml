@@ -1,5 +1,7 @@
 # Promtail Configuration for Orion Sentinel NSM
 # Ships logs from Suricata and AI service to Loki
+# In SPoG mode: sends to CoreSrv Loki (configured via LOKI_URL env var)
+# In dev/lab mode: sends to local Loki (http://loki:3100)
 
 server:
   http_listen_port: 9080
@@ -9,7 +11,10 @@ positions:
   filename: /tmp/positions.yaml
 
 clients:
-  - url: http://loki:3100/loki/api/v1/push
+  # LOKI_URL is set via environment variable in docker-compose.yml
+  # SPoG mode: http://192.168.8.XXX:3100/loki/api/v1/push
+  # Dev/lab mode: http://loki:3100/loki/api/v1/push
+  - url: ${LOKI_URL}/loki/api/v1/push
 
 scrape_configs:
   # Suricata EVE JSON logs

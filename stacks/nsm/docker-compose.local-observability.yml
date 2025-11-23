@@ -1,0 +1,71 @@
+# Orion Sentinel NSM Stack - Local Observability Override
+# Dev/lab only: Local Loki + Grafana on NetSec node
+# 
+# Normal SPoG mode: DO NOT use this file; all observability is on CoreSrv
+# Dev/lab mode: Use with base docker-compose.yml for standalone operation
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.local-observability.yml up -d
+
+version: '3.8'
+
+services:
+  # Loki - Local log aggregation (dev/lab only)
+  loki:
+    image: grafana/loki:2.9.3
+    container_name: orion-loki
+    ports:
+      - "3100:3100"  # HTTP API
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+    networks:
+      - orion-nsm-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Grafana - Local visualization (dev/lab only)
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: orion-grafana
+    ports:
+      - "3000:3000"  # Web UI
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+    volumes:
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - loki
+    restart: unless-stopped
+    networks:
+      - orion-nsm-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Override Promtail dependency to wait for local Loki
+  promtail:
+    depends_on:
+      - loki
+
+volumes:
+  loki-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+networks:
+  orion-nsm-network:
+    external: true
