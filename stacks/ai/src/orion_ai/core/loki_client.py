@@ -37,12 +37,14 @@ class LokiClient:
         Initialize Loki client.
         
         Args:
-            url: Loki HTTP API URL (default: from LOKI_URL env or config)
+            url: Loki HTTP API URL (default: from get_loki_url() which checks 
+                 LOKI_URL env var first, then falls back to config system)
             username: Optional HTTP basic auth username
             password: Optional HTTP basic auth password
             timeout: Request timeout in seconds
         """
-        # Use get_loki_url() helper which respects LOKI_URL env var
+        # Use get_loki_url() helper which checks LOKI_URL env var first,
+        # then falls back to config system
         self.url = url or get_loki_url()
         self.username = username
         self.password = password

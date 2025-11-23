@@ -31,6 +31,7 @@ services:
 
   # Promtail - Log shipper for Suricata logs
   # Ships to CoreSrv Loki in SPoG mode, or local Loki in dev mode
+  # Note: -config.expand-env=true enables ${LOKI_URL} environment variable expansion in config
   promtail:
     image: grafana/promtail:2.9.3
     container_name: orion-promtail

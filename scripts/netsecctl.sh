@@ -74,7 +74,8 @@ up_spog() {
     
     # Check LOKI_URL points to CoreSrv
     source "$PROJECT_ROOT/.env"
-    if [[ "$LOKI_URL" =~ ^http://loki:3100 ]]; then
+    # Match http://loki:3100 with or without trailing slash
+    if [[ "$LOKI_URL" =~ ^http://loki:3100/?$ ]]; then
         echo "WARNING: LOKI_URL appears to be set to local Loki"
         echo "         For SPoG mode, it should point to CoreSrv (e.g., http://192.168.8.XXX:3100)"
         read -p "Continue anyway? (y/N) " -n 1 -r
