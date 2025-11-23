@@ -1,3 +1,13 @@
+# Orion Sentinel AI Stack
+# AI-powered detection, SOAR automation, and web UI for NetSec node
+#
+# This stack contains only AI services and the web UI.
+# Loki and Grafana run separately:
+#   - SPoG mode: On CoreSrv (Dell) via LOKI_URL in .env
+#   - Standalone mode: Via stacks/nsm/docker-compose.local-observability.yml
+#
+# All services connect to Loki via LOKI_URL environment variable.
+
 version: '3.8'
 
 services:
@@ -21,8 +31,6 @@ services:
       - ../../config:/config:ro
       - soar-data:/data
     restart: unless-stopped
-    depends_on:
-      - loki
     networks:
       - orion-network
 
@@ -41,8 +49,6 @@ services:
     volumes:
       - inventory-data:/data
     restart: unless-stopped
-    depends_on:
-      - loki
     networks:
       - orion-network
 
@@ -61,8 +67,6 @@ services:
     volumes:
       - change-data:/data
     restart: unless-stopped
-    depends_on:
-      - loki
     networks:
       - orion-network
 
@@ -80,15 +84,13 @@ services:
     volumes:
       - health-data:/data
     restart: unless-stopped
-    depends_on:
-      - loki
     networks:
       - orion-network
 
-  # API Server
+  # API Server / Web UI
   # In normal SPoG mode, this UI is exposed via Traefik on CoreSrv
-  # as https://security.local, pointing to this service via LAN.
-  # Port 8000 should be accessible from CoreSrv's Traefik instance.
+  # (e.g., https://security.local), which proxies to this service on the NetSec node.
+  # Port 8000 should be accessible from CoreSrv's Traefik instance over LAN.
   api:
     build:
       context: ../..
@@ -107,39 +109,7 @@ services:
       - inventory-data:/data:ro
     restart: unless-stopped
     depends_on:
-      - loki
       - inventory
-    networks:
-      - orion-network
-
-  # Loki (log aggregation)
-  loki:
-    image: grafana/loki:latest
-    container_name: orion-loki
-    ports:
-      - "3100:3100"
-    command: -config.file=/etc/loki/local-config.yaml
-    volumes:
-      - loki-data:/loki
-    restart: unless-stopped
-    networks:
-      - orion-network
-
-  # Grafana (dashboards)
-  grafana:
-    image: grafana/grafana:latest
-    container_name: orion-grafana
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
-      - GF_INSTALL_PLUGINS=grafana-piechart-panel
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ../../config/grafana/provisioning:/etc/grafana/provisioning:ro
-    restart: unless-stopped
-    depends_on:
-      - loki
     networks:
       - orion-network
 
@@ -148,119 +118,7 @@ volumes:
   inventory-data:
   change-data:
   health-data:
-  loki-data:
-  grafana-data:
 
 networks:
   orion-network:
     driver: bridge
-# Orion Sentinel AI Service Stack
-# AI-powered threat detection using Raspberry Pi AI Hat
-
-version: '3.8'
-
-services:
-  orion-ai:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: orion-ai-service
-    environment:
-      # Loki connection
-      - LOKI_URL=${LOKI_URL:-http://loki:3100}
-      
-      # Pi-hole API (on Pi #1)
-      - PIHOLE_API_URL=${PIHOLE_API_URL}
-      - PIHOLE_API_TOKEN=${PIHOLE_API_TOKEN}
-      
-      # Model paths (inside container)
-      - DEVICE_ANOMALY_MODEL=${DEVICE_ANOMALY_MODEL:-/models/device_anomaly.onnx}
-      - DOMAIN_RISK_MODEL=${DOMAIN_RISK_MODEL:-/models/domain_risk.onnx}
-      
-      # Detection thresholds
-      - DEVICE_ANOMALY_THRESHOLD=${DEVICE_ANOMALY_THRESHOLD:-0.7}
-      - DOMAIN_RISK_THRESHOLD=${DOMAIN_RISK_THRESHOLD:-0.85}
-      
-      # Time windows (minutes)
-      - DEVICE_WINDOW_MINUTES=${DEVICE_WINDOW_MINUTES:-10}
-      - DOMAIN_WINDOW_MINUTES=${DOMAIN_WINDOW_MINUTES:-60}
-      
-      # Batch processing interval (minutes)
-      - BATCH_INTERVAL=${BATCH_INTERVAL:-10}
-      
-      # Enable/disable enforcement
-      - ENABLE_BLOCKING=${ENABLE_BLOCKING:-false}
-      
-      # Streaming mode (real-time vs batch)
-      - STREAMING_MODE=${STREAMING_MODE:-false}
-      
-      # Threat Intelligence
-      - THREAT_INTEL_ENABLE_THREAT_INTEL=${THREAT_INTEL_ENABLE:-true}
-      - THREAT_INTEL_OTX_API_KEY=${THREAT_INTEL_OTX_API_KEY}
-      - THREAT_INTEL_REFRESH_INTERVAL_HOURS=${THREAT_INTEL_REFRESH_HOURS:-6}
-      - THREAT_INTEL_IOC_SCORE_BOOST=${THREAT_INTEL_IOC_SCORE_BOOST:-0.3}
-      
-      # Logging
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - PYTHONUNBUFFERED=1
-    
-    volumes:
-      # Mount AI models
-      - ./models:/models:ro
-      
-      # Mount AI results for Promtail to pick up
-      - ai-logs:/var/log/ai
-      
-      # Persistent storage for threat intelligence cache
-      - threat-intel-cache:/var/lib/orion-ai
-    
-    # AI Hat device access (Hailo-8L accelerator)
-    # Uncomment if you have the AI Hat installed
-    # devices:
-    #   - /dev/hailo0:/dev/hailo0
-    # cap_add:
-    #   - SYS_RAWIO
-    
-    # Optional: Expose HTTP API
-    ports:
-      - "${AI_API_PORT:-8080}:8080"
-    
-    # Resource limits for Pi 5
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 2G
-        reservations:
-          cpus: '1.0'
-          memory: 1G
-    
-    # Command: Run in batch mode by default
-    # Override with: docker compose run orion-ai python main.py --mode api
-    command: python main.py --mode batch --interval ${BATCH_INTERVAL:-10}
-    
-    restart: unless-stopped
-    
-    # Connect to NSM network to access Loki
-    networks:
-      - orion-ai-network
-      - orion-nsm-network
-    
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-volumes:
-  ai-logs:
-    driver: local
-  threat-intel-cache:
-    driver: local
-
-networks:
-  orion-ai-network:
-    name: orion-ai-network
-  orion-nsm-network:
-    external: true
-    name: orion-nsm-network

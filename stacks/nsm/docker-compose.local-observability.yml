@@ -1,11 +1,26 @@
+# ============================================================================
 # Orion Sentinel NSM Stack - Local Observability Override
-# Dev/lab only: Local Loki + Grafana on NetSec node
+# ============================================================================
 # 
-# Normal SPoG mode: DO NOT use this file; all observability is on CoreSrv
-# Dev/lab mode: Use with base docker-compose.yml for standalone operation
+# ⚠️  DEV/LAB ONLY - DO NOT USE IN PRODUCTION ⚠️
 #
-# Usage:
-#   docker compose -f docker-compose.yml -f docker-compose.local-observability.yml up -d
+# In normal SPoG operation, Loki and Grafana run on CoreSrv (Dell).
+# This file provides local Loki + Grafana for ISOLATED LAB RUNS ONLY.
+#
+# Use this ONLY when:
+#   - Developing/testing without CoreSrv access
+#   - Running in a completely isolated lab environment
+#   - Debugging AI services locally
+#
+# Normal SPoG mode (recommended):
+#   - .env: LOKI_URL=http://<coresrv-ip>:3100, LOCAL_OBSERVABILITY=false
+#   - Start: docker compose -f docker-compose.yml up -d
+#
+# Standalone lab mode (local Loki+Grafana):
+#   - .env: LOKI_URL=http://loki:3100, LOCAL_OBSERVABILITY=true
+#   - Start: docker compose -f docker-compose.yml -f docker-compose.local-observability.yml up -d
+#
+# ============================================================================
 
 version: '3.8'
 
