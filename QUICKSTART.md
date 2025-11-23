@@ -1,53 +1,243 @@
 # Quick Start Guide
 
-This is a condensed version of the setup instructions. For detailed documentation, see the `docs/` directory.
+This is a condensed version of the setup instructions for Orion Sentinel NetSec node.
 
-## Prerequisites
+## Choose Your Deployment Mode
 
-- Raspberry Pi 5 (8 GB RAM recommended)
-- Raspberry Pi AI Hat (optional but recommended)
-- Raspberry Pi OS 64-bit (Debian Bookworm or later)
-- Docker & Docker Compose installed
-- Network switch with port mirroring capability
-- Access to Pi #1's Pi-hole API (from orion-sentinel-dns-ha repo)
+### 🎯 SPoG Mode (Production - Recommended)
 
-## 1. Initial Setup
+NetSec node as a sensor reporting to CoreSrv for centralized observability.
+
+**Prerequisites:**
+- CoreSrv (Dell) with Loki running and accessible on LAN
+- Raspberry Pi 5 (8GB) or mini-PC with Docker installed
+- Network switch with port mirroring (SPAN) configured
+- Pi-hole instance (optional, for DNS blocking)
+
+**Quick Setup:**
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/orion-sentinel-nsm-ai.git
-cd orion-sentinel-nsm-ai
+# 1. Clone repository
+git clone https://github.com/yorgosroussakis/Orion-sentinel-netsec-ai.git
+cd Orion-sentinel-netsec-ai
 
-# Configure NSM stack
-cd stacks/nsm
+# 2. Configure environment
 cp .env.example .env
-nano .env  # Edit NSM_IFACE and other settings
+nano .env
 
-# Configure AI stack
-cd ../ai
-cp .env.example .env
-nano .env  # Edit Pi-hole API URL, token, and thresholds
-cd ../..
+# Set these critical values:
+# LOKI_URL=http://192.168.8.XXX:3100  # Your CoreSrv IP
+# LOCAL_OBSERVABILITY=false
+# NSM_IFACE=eth0  # Your mirrored port interface
+
+# 3. Start in SPoG mode
+./scripts/netsecctl.sh up-spog
+
+# 4. Verify log shipping
+docker logs orion-promtail | grep "POST"
+# Should see: POST /loki/api/v1/push (200 OK)
 ```
 
-## 2. Deploy NSM Stack
+**Access:**
+- Dashboards: https://grafana.local (on CoreSrv)
+- NetSec Web UI: https://security.local (via CoreSrv Traefik)
+- Logs in Grafana: `{host="pi-netsec"}`
+
+**Next Steps:**
+- See [CoreSrv Integration Guide](docs/CORESRV-INTEGRATION.md) for Traefik setup
+- Configure SOAR playbooks in `stacks/ai/config/playbooks.yml`
+- Set up notifications (Email, Signal, Telegram) in `.env`
+
+---
+
+### 🧪 Standalone Mode (Development/Lab)
+
+NetSec node with local Loki + Grafana for development and testing.
+
+**Prerequisites:**
+- Raspberry Pi 5 (8GB) or mini-PC with Docker installed
+- Network switch with port mirroring (SPAN) configured
+
+**Quick Setup:**
 
 ```bash
+# 1. Clone repository
+git clone https://github.com/yorgosroussakis/Orion-sentinel-netsec-ai.git
+cd Orion-sentinel-netsec-ai
+
+# 2. Configure environment
+cp .env.example .env
+nano .env
+
+# Set these values:
+# LOKI_URL=http://loki:3100
+# LOCAL_OBSERVABILITY=true
+# NSM_IFACE=eth0
+
+# 3. Start in standalone mode
+./scripts/netsecctl.sh up-standalone
+
+# 4. Verify services
+docker compose -f stacks/nsm/docker-compose.yml ps
+docker compose -f stacks/ai/docker-compose.yml ps
+```
+
+**Access:**
+- Grafana: http://localhost:3000 (admin/admin)
+- NetSec Web UI: http://localhost:8000
+- Loki API: http://localhost:3100
+
+---
+
+## Common Operations
+
+### Using netsecctl.sh Helper Script
+
+```bash
+# Check service status
+./scripts/netsecctl.sh status
+
+# View logs
+./scripts/netsecctl.sh logs
+
+# Stop all services
+./scripts/netsecctl.sh down
+
+# Get help
+./scripts/netsecctl.sh help
+```
+
+### Manual Docker Compose Commands
+
+**SPoG Mode:**
+```bash
+# Start NSM (Suricata + Promtail)
 cd stacks/nsm
 docker compose up -d
 
-# Verify services are running
-docker compose ps
-
-# Check Suricata is capturing traffic
-docker compose logs suricata | tail -20
-
-# Access Grafana at http://pi2-ip:3000 (admin/admin)
+# Start AI services
+cd ../ai
+docker compose up -d
 ```
 
-## 3. Deploy AI Service
+**Standalone Mode:**
+```bash
+# Start NSM with local Loki+Grafana
+cd stacks/nsm
+docker compose -f docker-compose.yml -f docker-compose.local-observability.yml up -d
+
+# Start AI services
+cd ../ai
+docker compose up -d
+```
+
+## Verification Steps
+
+### 1. Check Suricata Traffic Capture
 
 ```bash
+# View Suricata logs
+docker logs orion-suricata | tail -20
+
+# Check for traffic capture
+docker exec orion-suricata tail -f /var/log/suricata/eve.json
+# Should see JSON events scrolling
+```
+
+### 2. Verify Log Shipping (SPoG Mode)
+
+```bash
+# Check Promtail is pushing to CoreSrv
+docker logs orion-promtail | grep "POST"
+
+# Test CoreSrv Loki connectivity
+curl http://192.168.8.XXX:3100/ready
+# Should return: 200 OK
+```
+
+### 3. Check AI Services
+
+```bash
+# Verify LOKI_URL is set correctly
+docker exec orion-soar env | grep LOKI_URL
+
+# Check service logs
+docker logs orion-soar
+docker logs orion-inventory
+docker logs orion-health-score
+```
+
+### 4. Test Web UI
+
+```bash
+# SPoG mode (via CoreSrv Traefik)
+curl https://security.local/api/health
+
+# Standalone mode
+curl http://localhost:8000/api/health
+# Should return JSON health status
+```
+
+## Network Setup
+
+### Configure Port Mirroring
+
+Your network switch must mirror traffic to the NetSec node:
+
+**Example (Managed Switch):**
+1. Access switch management interface
+2. Configure port mirroring:
+   - Source: All LAN ports
+   - Destination: Port connected to NetSec node
+   - Direction: Both (ingress + egress)
+
+**Verify Interface:**
+```bash
+# List network interfaces
+ip link show
+
+# Set NSM_IFACE in .env to your mirrored port
+# Example: eth0, eth1, enp1s0, etc.
+```
+
+## Troubleshooting
+
+### No Traffic in Suricata
+
+1. Verify port mirroring is configured correctly on switch
+2. Check NSM_IFACE in `.env` matches your physical interface
+3. Run: `docker exec orion-suricata ip link` to see available interfaces
+
+### Logs Not Appearing on CoreSrv (SPoG Mode)
+
+1. Test Loki connectivity: `curl http://coresrv-ip:3100/ready`
+2. Check LOKI_URL in `.env`
+3. View Promtail logs: `docker logs orion-promtail`
+4. Verify CoreSrv Loki port 3100 is open
+
+### Services Won't Start
+
+1. Check Docker is running: `docker info`
+2. Verify `.env` file exists in project root
+3. Check for port conflicts: `docker compose ps`
+4. View service logs: `docker logs <container-name>`
+
+## Next Steps
+
+- **Configure SOAR**: Edit `stacks/ai/config/playbooks.yml`
+- **Set up Notifications**: Configure Email/Signal/Telegram in `.env`
+- **Enable Threat Intel**: Get API keys for OTX, URLhaus, etc.
+- **Create Dashboards**: Import dashboards to CoreSrv Grafana
+- **Test SOAR**: Run in dry-run mode first (`SOAR_DRY_RUN=1`)
+
+## Documentation
+
+- [CoreSrv Integration](docs/CORESRV-INTEGRATION.md) - Full SPoG setup guide
+- [NSM Stack](stacks/nsm/README.md) - Suricata and Promtail details
+- [AI Stack](stacks/ai/README.md) - AI services configuration
+- [Architecture](docs/architecture.md) - System design overview
+
+For detailed documentation, see the [main README](README.md) and `docs/` directory.
 cd ../ai
 
 # IMPORTANT: Place your ML models in ./models/ directory first

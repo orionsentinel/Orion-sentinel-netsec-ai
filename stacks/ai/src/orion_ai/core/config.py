@@ -225,3 +225,27 @@ def reload_config() -> AppConfig:
     global _config
     _config = None
     return get_config()
+
+
+def get_loki_url() -> str:
+    """
+    Get the Loki URL from environment or configuration.
+    
+    This is a convenience helper for components that need to connect to Loki.
+    Priority order:
+    1. LOKI_URL environment variable (for SPoG/standalone mode switching)
+    2. Configuration system default
+    
+    In SPoG mode, this points to CoreSrv Loki (e.g., http://192.168.8.XXX:3100).
+    In dev/lab mode, this points to local Loki (http://loki:3100).
+    
+    Returns:
+        str: The Loki HTTP API URL
+    """
+    # Check environment variable first to allow runtime override
+    env_url = os.getenv("LOKI_URL")
+    if env_url:
+        return env_url
+    
+    # Fall back to configuration system
+    return get_config().loki.url
