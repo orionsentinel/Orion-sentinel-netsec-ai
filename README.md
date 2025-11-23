@@ -36,19 +36,47 @@ The Orion Sentinel platform consists of two main components:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Deployment Modes
+## Modes
 
-**🎯 SPoG Mode (Normal Operation)**:
+Orion Sentinel NetSec supports two explicit deployment modes:
+
+### 🎯 SPoG Mode (Integrated with CoreSrv)
+
+**Purpose**: NetSec node acts as a sensor feeding into a centralized CoreSrv for observability.
+
+**Configuration**:
+- `.env` settings:
+  - `LOCAL_OBSERVABILITY=false`
+  - `LOKI_URL=http://<CoreSrv-IP>:3100` (e.g., `http://192.168.8.50:3100`)
+- Docker Compose files: Use only `stacks/nsm/docker-compose.yml`
+- Startup command: `./scripts/netsecctl.sh up-spog`
+
+**What runs**:
 - NetSec = sensor + AI engine only
 - All logs shipped to CoreSrv Loki
 - All dashboards on CoreSrv Grafana
 - Web UI accessed via CoreSrv Traefik at `https://security.local`
 - No local Loki/Grafana on NetSec node
 
-**🧪 Standalone Mode (Development/Lab)**:
-- NetSec runs own Loki + Grafana
+### 🧪 Standalone Mode (Local Observability)
+
+**Purpose**: NetSec node runs completely on its own with local Loki and Grafana for development, testing, or offline operation.
+
+**Configuration**:
+- `.env` settings:
+  - `LOCAL_OBSERVABILITY=true`
+  - `LOKI_URL=http://loki:3100`
+- Docker Compose files: Use `stacks/nsm/docker-compose.yml` + `stacks/nsm/docker-compose.local-observability.yml`
+- Startup command: `./scripts/netsecctl.sh up-standalone`
+
+**What runs**:
+- NetSec runs its own Loki + Grafana stack
+- All observability stays local on the NetSec node
+- Access Grafana at `http://localhost:3000`
+- Access Web UI at `http://localhost:8000`
 - Useful for development, testing, and offline operation
-- Activated via `LOCAL_OBSERVABILITY=true` in `.env`
+
+---
 
 See [CoreSrv Integration Guide](docs/CORESRV-INTEGRATION.md) for setup details.
 
