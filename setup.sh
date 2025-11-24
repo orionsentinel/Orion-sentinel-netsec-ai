@@ -136,6 +136,11 @@ select_mode() {
 configure_environment() {
     print_header "Environment Configuration"
     
+    if [ ! -f .env.example ]; then
+        print_error ".env.example file not found. Repository may be corrupted."
+        exit 1
+    fi
+    
     if [ -f .env ]; then
         print_warning ".env file already exists"
         read -p "Overwrite existing .env file? (y/N): " overwrite
@@ -243,6 +248,11 @@ setup_python_dev() {
     read -p "Set up Python development environment? (y/N): " setup_dev
     if [[ ! $setup_dev =~ ^[Yy]$ ]]; then
         print_info "Skipping Python development environment setup"
+        return
+    fi
+    
+    if [ ! -f requirements-dev.txt ]; then
+        print_error "requirements-dev.txt not found. Cannot set up development environment."
         return
     fi
     

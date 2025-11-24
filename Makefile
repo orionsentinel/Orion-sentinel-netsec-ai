@@ -95,7 +95,7 @@ clean: ## Clean up generated files and containers
 clean-all: clean ## Deep clean including venv and Docker volumes
 	@echo "Performing deep clean..."
 	@rm -rf venv
-	@docker volume ls -q | grep orion | xargs -r docker volume rm || true
+	@docker volume ls -q | grep "^orion-" | xargs -r docker volume rm || true
 	@echo "✅ Deep clean complete"
 
 env-check: ## Validate .env file exists and is configured
@@ -104,8 +104,13 @@ env-check: ## Validate .env file exists and is configured
 		exit 1; \
 	fi
 	@echo "✅ .env file exists"
-	@grep -q "LOKI_URL=http://192.168.8.XXX:3100" .env && \
-		echo "⚠️  Warning: LOKI_URL still has default value. Update it in .env" || true
+	@if [ -f .env.example ]; then \
+		PLACEHOLDER=$$(grep "^LOKI_URL=" .env.example | cut -d= -f2); \
+		CURRENT=$$(grep "^LOKI_URL=" .env | cut -d= -f2); \
+		if [ "$$PLACEHOLDER" = "$$CURRENT" ]; then \
+			echo "⚠️  Warning: LOKI_URL still has default value. Update it in .env"; \
+		fi; \
+	fi
 
 verify-spog: env-check ## Verify SPoG mode connectivity to CoreSrv
 	@echo "Verifying SPoG mode connectivity..."
