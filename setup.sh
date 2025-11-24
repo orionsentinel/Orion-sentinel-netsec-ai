@@ -63,7 +63,7 @@ check_prerequisites() {
     
     # Check Docker Compose
     if docker compose version >/dev/null 2>&1; then
-        local compose_version=$(docker compose version | cut -d' ' -f4)
+        local compose_version=$(docker compose version 2>/dev/null | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "installed")
         print_success "Docker Compose found: $compose_version"
     else
         print_error "Docker Compose not found. Please install Docker Compose."
@@ -281,7 +281,8 @@ show_next_steps() {
         echo "Next steps for SPoG mode:"
         echo ""
         echo "  1. Verify CoreSrv Loki is accessible:"
-        echo "     curl \$(grep LOKI_URL .env | cut -d= -f2)/ready"
+        LOKI_URL_VALUE=$(grep "^LOKI_URL=" .env | cut -d= -f2)
+        echo "     curl ${LOKI_URL_VALUE}/ready"
         echo ""
         echo "  2. Start services:"
         echo "     ./scripts/netsecctl.sh up-spog"

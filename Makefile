@@ -1,7 +1,7 @@
 # Orion Sentinel NetSec Node - Makefile
 # Provides convenient commands for common operations
 
-.PHONY: help setup install start-spog start-standalone stop status logs clean dev-install test lint format
+.PHONY: help setup install start-spog start-standalone start stop down status logs restart-spog restart-standalone dev-install test lint format clean clean-all env-check verify-spog health update-images backup-config docs
 
 # Default target
 .DEFAULT_GOAL := help
