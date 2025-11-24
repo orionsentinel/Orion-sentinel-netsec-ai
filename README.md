@@ -239,7 +239,37 @@ Everything flows through Loki and is visible in both Grafana (analytics) and the
 - Network switch/router with port mirroring (SPAN) configured
 - CoreSrv running (for SPoG mode) OR standalone lab setup
 
-### Installation
+### 🚀 Streamlined Installation (Recommended)
+
+The easiest way to get started:
+
+```bash
+# 1. Clone repository
+git clone https://github.com/yorgosroussakis/Orion-sentinel-netsec-ai.git
+cd Orion-sentinel-netsec-ai
+
+# 2. Run interactive setup
+./setup.sh
+# OR using Make
+make setup
+
+# 3. Start services (based on mode you selected)
+make start-spog        # For SPoG mode
+# OR
+make start-standalone  # For Standalone mode
+```
+
+The interactive setup script will:
+- ✅ Check all prerequisites (Docker, Docker Compose)
+- ✅ Guide you through mode selection (SPoG vs Standalone)
+- ✅ Configure environment variables with prompts
+- ✅ Set network interface for Suricata
+- ✅ Optionally set up Python development environment
+- ✅ Display clear next steps
+
+### Manual Installation (Alternative)
+
+If you prefer manual configuration:
 
 #### SPoG Mode (Production - Recommended)
 
@@ -272,6 +302,8 @@ Deploy NetSec as a sensor that reports to CoreSrv:
 3. **Start services**:
    ```bash
    ./scripts/netsecctl.sh up-spog
+   # OR
+   make start-spog
    ```
 
 4. **Verify log shipping**:
@@ -316,6 +348,27 @@ Run NetSec with local observability for development:
    - **Loki API**: http://localhost:3100
 
 ### Common Commands
+
+#### Using Make (Recommended)
+
+```bash
+# Get help with all available commands
+make help
+
+# Service management
+make start-spog          # Start in SPoG mode
+make start-standalone    # Start in Standalone mode
+make stop               # Stop all services
+make status             # Check service status
+make logs              # View logs
+
+# Development
+make dev-install       # Set up Python development environment
+make test             # Run tests
+make lint             # Run linters
+```
+
+#### Using netsecctl.sh Script
 
 ```bash
 # Check service status

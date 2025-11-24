@@ -2,6 +2,37 @@
 
 This is a condensed version of the setup instructions for Orion Sentinel NetSec node.
 
+## 🚀 Fastest Way to Get Started
+
+```bash
+# 1. Clone repository
+git clone https://github.com/yorgosroussakis/Orion-sentinel-netsec-ai.git
+cd Orion-sentinel-netsec-ai
+
+# 2. Run interactive setup (guides you through configuration)
+./setup.sh
+# OR
+make setup
+
+# 3. Start services (based on your chosen mode)
+make start-spog        # For SPoG mode
+# OR
+make start-standalone  # For Standalone mode
+
+# 4. Check status
+make status
+```
+
+The `setup.sh` script provides an interactive installation experience that:
+- Validates prerequisites
+- Helps you choose the right deployment mode
+- Configures all necessary settings
+- Shows you exactly what to do next
+
+For manual setup instructions, continue reading below.
+
+---
+
 ## Modes
 
 Orion Sentinel NetSec supports two explicit deployment modes. Choose the one that fits your use case:
@@ -112,6 +143,39 @@ docker compose -f stacks/ai/docker-compose.yml ps
 ---
 
 ## Common Operations
+
+### Using Make Commands (Recommended)
+
+The Makefile provides convenient shortcuts for all common operations:
+
+```bash
+# View all available commands
+make help
+
+# Start/stop services
+make start-spog          # Start in SPoG mode
+make start-standalone    # Start in Standalone mode
+make stop               # Stop all services
+make restart-spog       # Restart in SPoG mode
+
+# Monitor and debug
+make status             # Show service status
+make logs              # Tail logs from all services
+make health            # Check health of running services
+
+# Development
+make dev-install       # Set up Python development environment
+make test             # Run tests
+make lint             # Run linters
+make format           # Format code with black
+
+# Maintenance
+make env-check        # Validate .env configuration
+make verify-spog      # Test connectivity to CoreSrv
+make update-images    # Pull latest Docker images
+make backup-config    # Backup configuration files
+make clean           # Clean up generated files
+```
 
 ### Using netsecctl.sh Helper Script
 
