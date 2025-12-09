@@ -827,6 +827,68 @@ docker-compose exec ai-service python -m orion_ai.threat_intel.sync --stats
 - [ ] Rollback plan documented
 - [ ] Monitoring dashboards configured
 - [ ] Team trained on SOAR interface
+- [ ] Backup system configured and tested
+
+## 🗄️ Backup & Restore
+
+Orion Sentinel includes comprehensive backup and restore capabilities for all critical data.
+
+### Quick Backup
+
+```bash
+# Backup all critical volumes
+sudo ./backup/backup-volumes.sh
+```
+
+Default backup location: `/srv/backups/orion/YYYY-MM-DD_HH-MM-SS`
+
+### Quick Restore
+
+```bash
+# Stop services
+make down
+
+# Restore a specific volume
+sudo ./backup/restore-volume.sh /srv/backups/orion/2024-01-15/VOLUME_NAME.tar.gz
+
+# Restart services
+make up-all
+```
+
+### Critical Volumes
+
+The backup system protects these essential volumes:
+
+| Volume | Description | Priority |
+|--------|-------------|----------|
+| `suricata-logs` | IDS logs and alerts | High |
+| `suricata-rules` | Detection rules and config | High |
+| `inventory-data` | Device inventory database | High |
+| `soar-data` | Playbook execution history | Medium |
+| `change-data` | Network change monitoring | Medium |
+| `health-data` | Security health scores | Low |
+
+### Automated Backup Setup
+
+For production deployments, set up automated weekly backups:
+
+```bash
+# Create backup directory
+sudo mkdir -p /srv/backups/orion
+
+# Add to crontab (runs every Sunday at 2 AM)
+(crontab -l 2>/dev/null; echo "0 2 * * 0 $(pwd)/backup/backup-volumes.sh") | crontab -
+```
+
+### Backup Best Practices
+
+1. **Test your backups regularly** - Restore to a test environment monthly
+2. **Keep multiple versions** - Maintain 7 daily, 4 weekly, 6 monthly backups
+3. **Store offsite** - Copy backups to external drive or remote server
+4. **Monitor backup success** - Check backup logs and manifest files
+5. **Document restore procedures** - Keep team informed of recovery process
+
+For detailed backup/restore procedures, see [backup/README.md](backup/README.md)
 
 ## Contributing
 
@@ -1043,6 +1105,29 @@ See `docs/integration-orion-dns-ha.md` for detailed instructions on configuring 
 3. **API-Based Enforcement**: Blocking happens via Pi-hole API on Pi #1, not locally.
 4. **All Actions Logged**: Every AI decision and enforcement action is logged to Loki.
 5. **Privacy-Focused**: All processing happens locally on your Pi; no cloud dependencies.
+6. **Service Isolation**: No services exposed directly to the internet - all access via Traefik+Authelia on CoreSrv.
+7. **Pinned Images**: Docker images pinned to specific versions for security and reproducibility.
+8. **Regular Updates**: Security patches applied promptly via documented update procedures.
+
+### Security Best Practices
+
+#### Service Exposure
+- **SPoG Mode (Production)**: Web UI exposed only via CoreSrv Traefik with Authelia authentication
+- **Standalone Mode (Lab)**: Services bound to localhost or LAN only
+- **Never expose directly**: Do not expose Grafana, Loki, or API ports to the internet without authentication
+
+#### Port Security
+The following ports are used internally and should NOT be exposed to the internet:
+- `8000` - API/Web UI (access via Traefik on CoreSrv)
+- `3100` - Loki (internal log aggregation)
+- `9100` - Node Exporter (metrics, LAN only)
+
+#### Update Strategy
+See [docs/update.md](docs/update.md) for:
+- Security patch procedures
+- Version pinning strategy  
+- Update testing workflow
+- Rollback procedures
 
 ## 🧪 Key Features
 

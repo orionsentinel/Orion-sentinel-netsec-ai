@@ -9,7 +9,7 @@ version: '3.8'
 services:
   # Suricata IDS - Passive network monitoring
   suricata:
-    image: jasonish/suricata:latest  # ARM-compatible
+    image: jasonish/suricata:7.0.2  # ARM-compatible
     container_name: orion-suricata
     network_mode: host  # Required for packet capture
     cap_add:

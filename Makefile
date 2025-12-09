@@ -65,6 +65,8 @@ status: ## Show status of all services
 	@echo ""
 	@docker compose --profile netsec-core --profile ai ps
 
+ps: status ## Alias for status - show running services
+
 logs: ## Tail logs from all services
 	@docker compose --profile netsec-core --profile ai logs -f --tail=100
 

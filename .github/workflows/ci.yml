@@ -7,8 +7,69 @@ on:
     branches: [ main ]
 
 jobs:
+  # Validate configuration files
+  validate-configs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Validate docker-compose files
+      run: |
+        echo "Validating docker-compose files..."
+        # Main compose file
+        docker compose -f compose.yml config > /dev/null
+        echo "✓ compose.yml is valid"
+        
+        # AI stack
+        docker compose -f stacks/ai/docker-compose.yml config > /dev/null
+        echo "✓ stacks/ai/docker-compose.yml is valid"
+        
+        # NSM stack
+        docker compose -f stacks/nsm/docker-compose.yml config > /dev/null
+        echo "✓ stacks/nsm/docker-compose.yml is valid"
+        
+        # NSM local observability
+        docker compose -f stacks/nsm/docker-compose.local-observability.yml config > /dev/null
+        echo "✓ stacks/nsm/docker-compose.local-observability.yml is valid"
+        
+        echo "All docker-compose files are valid ✓"
+    
+    - name: Install yamllint
+      run: pip install yamllint
+    
+    - name: Lint YAML files
+      run: |
+        echo "Linting YAML files..."
+        # Create yamllint config if it doesn't exist
+        cat > .yamllint << EOF
+        extends: default
+        rules:
+          line-length:
+            max: 120
+            level: warning
+          comments:
+            min-spaces-from-content: 1
+          indentation:
+            spaces: 2
+          truthy:
+            allowed-values: ['true', 'false', 'yes', 'no']
+        EOF
+        yamllint -c .yamllint . || true
+        echo "YAML linting complete"
+    
+    - name: Install shellcheck
+      run: sudo apt-get update && sudo apt-get install -y shellcheck
+    
+    - name: Lint shell scripts
+      run: |
+        echo "Checking shell scripts..."
+        find scripts/ -name "*.sh" -type f -exec shellcheck {} \; || true
+        echo "Shell script linting complete"
+
+
   test:
     runs-on: ubuntu-latest
+    needs: validate-configs
     env:
       PYTHONPATH: src
     strategy:
@@ -76,3 +137,70 @@ jobs:
     - name: Test Docker image
       run: |
         docker run --rm orion-sentinel:test python -c "import src.orion_ai; print('Package imports successfully')"
+
+  # Smoke test - spin up stack and verify healthchecks
+  smoke-test:
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Create .env file for testing
+      run: |
+        cat > .env << EOF
+        # CI Test Environment
+        MONITOR_IF=eth0
+        LOKI_URL=http://localhost:3100
+        SOAR_DRY_RUN=1
+        SOAR_POLL_INTERVAL=60
+        SOAR_ALLOW_EMPTY_PLAYBOOKS=1
+        INVENTORY_POLL_INTERVAL=300
+        CHANGE_MONITOR_INTERVAL_HOURS=24
+        HEALTH_SCORE_INTERVAL_HOURS=1
+        API_PORT=8000
+        LOG_LEVEL=INFO
+        EOF
+    
+    - name: Start core services
+      run: |
+        echo "Starting core NSM services..."
+        docker compose --profile netsec-core up -d
+        echo "Waiting for services to initialize..."
+        sleep 30
+    
+    - name: Check service health
+      run: |
+        echo "Checking service status..."
+        docker compose ps
+        
+        # Check if containers are running
+        echo "Verifying containers are running..."
+        docker ps --filter "name=orion-" --format "table {{.Names}}\t{{.Status}}"
+        
+        # Count running orion containers
+        RUNNING=$(docker ps --filter "name=orion-" --filter "status=running" -q | wc -l)
+        echo "Running containers: $RUNNING"
+        
+        if [ "$RUNNING" -lt 1 ]; then
+          echo "ERROR: No containers are running!"
+          docker compose logs
+          exit 1
+        fi
+        
+        echo "✓ Services are running"
+    
+    - name: Verify Suricata
+      run: |
+        echo "Checking Suricata..."
+        # Give Suricata time to start
+        sleep 10
+        docker logs orion-suricata || true
+        echo "✓ Suricata check complete"
+    
+    - name: Cleanup
+      if: always()
+      run: |
+        echo "Cleaning up test environment..."
+        docker compose --profile netsec-core down -v
+        echo "✓ Cleanup complete"

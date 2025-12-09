@@ -24,7 +24,7 @@ services:
 
   # Suricata IDS - Passive network monitoring on mirrored traffic
   suricata:
-    image: jasonish/suricata:latest
+    image: jasonish/suricata:7.0.2
     container_name: orion-suricata
     profiles: ["netsec-core"]
     network_mode: host  # Required for packet capture on physical interface
@@ -72,7 +72,7 @@ services:
 
   # Node Exporter - System metrics (CPU, RAM, disk, network)
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.7.0
     container_name: orion-node-exporter
     profiles: ["netsec-core", "exporters"]
     command:
