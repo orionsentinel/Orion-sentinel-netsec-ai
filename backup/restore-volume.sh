@@ -101,6 +101,16 @@ echo ""
 
 # Clear existing volume data
 echo -e "${YELLOW}Clearing existing volume data...${NC}"
+# Safety check: Ensure VOLUME_PATH is not empty and looks like a Docker volume path
+if [ -z "${VOLUME_PATH}" ]; then
+    echo -e "${RED}ERROR: Volume path is empty - aborting for safety${NC}"
+    exit 1
+fi
+if [[ ! "${VOLUME_PATH}" =~ ^/var/lib/docker/volumes/ ]]; then
+    echo -e "${RED}ERROR: Volume path doesn't look like a Docker volume - aborting for safety${NC}"
+    echo "Expected path starting with /var/lib/docker/volumes/, got: ${VOLUME_PATH}"
+    exit 1
+fi
 rm -rf "${VOLUME_PATH:?}"/*
 echo -e "${GREEN}✓${NC} Existing data cleared"
 
@@ -120,7 +130,23 @@ if tar -xzf "${BACKUP_FILE}" -C "${TEMP_DIR}"; then
     fi
     
     # Copy contents to volume
-    cp -a "${EXTRACTED_DIR}"/* "${VOLUME_PATH}/" 2>/dev/null || true
+    cp -a "${EXTRACTED_DIR}"/* "${VOLUME_PATH}/" 2>&1 | tee /tmp/restore-errors.log || {
+        # Check if errors were due to empty directory (acceptable) or real issues
+        if [ ! -s /tmp/restore-errors.log ]; then
+            # No output means success
+            true
+        elif grep -q "No such file or directory" /tmp/restore-errors.log; then
+            echo -e "${YELLOW}⚠ Warning: Some files could not be restored - check logs${NC}"
+            cat /tmp/restore-errors.log
+        else
+            echo -e "${RED}ERROR: Failed to copy backup contents${NC}"
+            cat /tmp/restore-errors.log
+            rm -f /tmp/restore-errors.log
+            rm -rf "${TEMP_DIR}"
+            exit 1
+        fi
+    }
+    rm -f /tmp/restore-errors.log
     
     # Calculate restored size
     RESTORED_SIZE=$(du -sh "${VOLUME_PATH}" | cut -f1)

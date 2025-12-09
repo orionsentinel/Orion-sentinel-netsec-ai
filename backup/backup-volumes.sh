@@ -50,6 +50,9 @@ echo -e "${GREEN}✓${NC} Created backup directory: ${BACKUP_PATH}"
 # Function to backup a single volume
 backup_volume() {
     local volume_spec="$1"
+    # Extract volume name and description using parameter expansion
+    # ${var%%:*} removes everything after first colon (gets volume name)
+    # ${var##*:} removes everything before last colon (gets description)
     local volume_name="${volume_spec%%:*}"
     local description="${volume_spec##*:}"
     

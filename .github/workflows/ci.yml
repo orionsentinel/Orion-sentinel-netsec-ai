@@ -42,7 +42,9 @@ jobs:
     - name: Lint YAML files
       run: |
         echo "Linting YAML files..."
-        yamllint . || true
+        # Run yamllint and show results, but don't fail build on warnings
+        # This allows us to see issues without blocking deployment
+        yamllint . || echo "⚠️ YAML linting found issues (non-blocking)"
         echo "YAML linting complete"
 
     - name: Install shellcheck
@@ -51,7 +53,9 @@ jobs:
     - name: Lint shell scripts
       run: |
         echo "Checking shell scripts..."
-        find scripts/ -name "*.sh" -type f -exec shellcheck {} \; || true
+        # Run shellcheck and show results, but don't fail build on existing issues
+        # This allows us to see issues without blocking deployment
+        find scripts/ backup/ -name "*.sh" -type f -exec shellcheck {} \; || echo "⚠️ Shellcheck found issues (non-blocking)"
         echo "Shell script linting complete"
 
 
