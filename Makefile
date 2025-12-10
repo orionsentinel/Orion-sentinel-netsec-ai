@@ -1,7 +1,7 @@
 # Orion Sentinel NetSec Node - Makefile
 # Provides convenient commands for common operations
 
-.PHONY: help bootstrap setup install start-spog start-standalone start stop down status logs restart-spog restart-standalone dev-install test lint format clean clean-all env-check verify-spog health update-images backup-config backup-volumes restore-volume docs up-core up-all ps
+.PHONY: help bootstrap check-nvme setup install up-minimal up-evebox up-debug up-full start stop down status logs restart dev-install test lint format clean clean-all env-check verify-spog health update-images backup-config backup-volumes restore-volume docs ps
 
 # Default target
 .DEFAULT_GOAL := help
@@ -9,41 +9,85 @@
 # Variables
 NETSECCTL := ./scripts/netsecctl.sh
 BOOTSTRAP := ./scripts/bootstrap-netsec.sh
+CHECK_NVME := ./scripts/check-nvme.sh
 
 help: ## Show this help message
 	@echo "Orion Sentinel NetSec Node - Available Commands"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
-	@echo "Quick Start (Production):"
-	@echo "  1. make bootstrap      # Initial system setup"
-	@echo "  2. make up-all         # Start all services (recommended)"
+	@echo "Quick Start (Production - NVMe Deployment):"
+	@echo "  1. make check-nvme     # Verify NVMe storage setup"
+	@echo "  2. make bootstrap      # Initial system setup"
+	@echo "  3. make up-minimal     # Start minimal NetSec sensor (recommended)"
 	@echo ""
-	@echo "Alternative Quick Start:"
-	@echo "  1. make setup          # Interactive setup (legacy)"
-	@echo "  2. make start-spog     # Start in SPoG mode"
+	@echo "Alternative Profiles:"
+	@echo "  - make up-evebox       # Start with EveBox UI for local analysis"
+	@echo "  - make up-full         # Start with legacy AI services (not recommended)"
 	@echo ""
 
 bootstrap: ## Run bootstrap script to prepare system
 	@$(BOOTSTRAP)
+
+check-nvme: ## Verify NVMe storage setup and health
+	@echo "Checking NVMe storage..."
+	@$(CHECK_NVME)
 
 setup: ## Run interactive setup script (legacy)
 	@./setup.sh
 
 install: bootstrap ## Alias for bootstrap (recommended)
 
-up-core: ## Start core NSM services only (netsec-core profile)
-	@echo "Starting Orion Sentinel NetSec Core (Suricata + Promtail + Node Exporter)..."
-	@docker compose --profile netsec-core up -d
-	@echo "✓ Core services started"
-	@echo "  Check status: make status"
+up-minimal: ## Start minimal NetSec sensor (Suricata + Promtail + Node Exporter) - PRODUCTION DEFAULT
+	@echo "Starting Orion Sentinel NetSec - Minimal Profile (Production)..."
+	@docker compose --profile netsec-minimal up -d
+	@echo "✓ Minimal sensor started"
+	@echo ""
+	@echo "Services running:"
+	@echo "  • Suricata IDS (passive monitoring)"
+	@echo "  • Promtail (log shipping to CoreSrv)"
+	@echo "  • Node Exporter (metrics on port 9100)"
+	@echo ""
+	@echo "Check status: make status"
+	@echo "View logs: make logs"
 
-up-all: ## Start all services (netsec-core + ai profiles) - RECOMMENDED
-	@echo "Starting Orion Sentinel NetSec - Full Stack..."
-	@docker compose --profile netsec-core --profile ai up -d
-	@echo "✓ All services started"
+up-evebox: ## Start NetSec with EveBox UI (minimal + local alert browsing)
+	@echo "Starting Orion Sentinel NetSec - EveBox Profile..."
+	@docker compose --profile netsec-plus-evebox up -d
+	@echo "✓ NetSec with EveBox started"
+	@echo ""
+	@echo "Access EveBox UI: http://localhost:5636"
+	@echo "Check status: make status"
+
+up-debug: ## Start NetSec with debug tools (minimal + debug container)
+	@echo "Starting Orion Sentinel NetSec - Debug Mode..."
+	@docker compose --profile netsec-minimal --profile netsec-debug up -d
+	@echo "✓ NetSec with debug tools started"
+	@echo ""
+	@echo "Access debug container:"
+	@echo "  docker exec -it orion-netsec-debug /bin/sh"
+	@echo ""
+	@echo "Example debug commands:"
+	@echo "  tcpdump -i eth0 -nn 'port 53'"
+	@echo "  dig @8.8.8.8 google.com"
+	@echo "  curl -v http://192.168.1.1"
+
+up-full: ## Start full stack with legacy AI services (not recommended for production)
+	@echo "⚠️  WARNING: Starting with legacy AI services"
+	@echo "    For production, use 'make up-minimal' instead"
+	@echo "    AI services should run on separate AI Node in v2"
+	@echo ""
+	@echo "Starting Orion Sentinel NetSec - Full Stack (Legacy)..."
+	@docker compose --profile netsec-minimal --profile ai up -d
+	@echo "✓ Full stack started"
+	@echo ""
 	@echo "  Web UI: http://localhost:8000"
 	@echo "  Check status: make status"
+
+# Legacy aliases for backward compatibility
+up-core: up-minimal ## Alias for up-minimal (backward compatibility)
+
+up-all: up-full ## Alias for up-full (backward compatibility)
 
 start-spog: ## Start services in SPoG mode (production) - LEGACY
 	@$(NETSECCTL) up-spog
@@ -51,11 +95,11 @@ start-spog: ## Start services in SPoG mode (production) - LEGACY
 start-standalone: ## Start services in Standalone mode (development/lab) - LEGACY
 	@$(NETSECCTL) up-standalone
 
-start: up-all ## Alias for up-all (default start mode)
+start: up-minimal ## Alias for up-minimal (default start mode)
 
 stop: ## Stop all services
 	@echo "Stopping all Orion Sentinel services..."
-	@docker compose --profile netsec-core --profile ai down
+	@docker compose --profile netsec-minimal --profile netsec-plus-evebox --profile netsec-debug --profile ai down
 	@echo "✓ All services stopped"
 
 down: stop ## Alias for stop
@@ -63,18 +107,18 @@ down: stop ## Alias for stop
 status: ## Show status of all services
 	@echo "Orion Sentinel Service Status:"
 	@echo ""
-	@docker compose --profile netsec-core --profile ai ps
+	@docker compose ps
 
 ps: status ## Alias for status - show running services
 
 logs: ## Tail logs from all services
-	@docker compose --profile netsec-core --profile ai logs -f --tail=100
+	@docker compose logs -f --tail=100
+
+restart: stop up-minimal ## Restart minimal NetSec sensor
 
 restart-spog: stop start-spog ## Restart services in SPoG mode (legacy)
 
 restart-standalone: stop start-standalone ## Restart services in Standalone mode (legacy)
-
-restart: stop up-all ## Restart all services
 
 dev-install: ## Set up Python development environment
 	@echo "Setting up Python development environment..."
@@ -90,19 +134,22 @@ dev-install: ## Set up Python development environment
 	@echo "Activate with: source venv/bin/activate"
 
 test: ## Run validation tests to check deployment
-	@echo "=== Orion Sentinel Validation Tests ==="
+	@echo "=== Orion Sentinel NetSec Validation Tests ==="
 	@echo ""
-	@echo "1. Checking if services are running..."
-	@docker compose ps --format "table {{.Name}}\t{{.Status}}" | grep -E "(orion-|NAME)" || echo "No services running"
+	@echo "1. Checking NVMe storage..."
+	@$(CHECK_NVME) || echo "  ⚠ NVMe check failed"
 	@echo ""
-	@echo "2. Checking Suricata packet capture..."
-	@docker exec orion-suricata suricatasc -c "capture-mode" 2>/dev/null || echo "  ⚠ Suricata not running or not responding"
+	@echo "2. Checking if services are running..."
+	@docker compose ps --format "table {{.Name}}\t{{.Status}}" | grep -E "(orion-netsec|NAME)" || echo "  ⚠ No services running"
 	@echo ""
-	@echo "3. Checking Promtail log shipping..."
-	@docker logs orion-promtail 2>&1 | grep -i "POST" | tail -3 || echo "  ⚠ No log shipping activity found"
+	@echo "3. Checking Suricata packet capture..."
+	@docker logs orion-netsec-suricata 2>&1 | grep -i "received" | tail -3 || echo "  ⚠ Suricata not running or no packets captured"
 	@echo ""
-	@echo "4. Checking API health..."
-	@curl -s http://localhost:8000/api/health 2>/dev/null && echo "" || echo "  ⚠ API not responding"
+	@echo "4. Checking Promtail log shipping..."
+	@docker logs orion-netsec-promtail 2>&1 | grep -i "POST" | tail -3 || echo "  ⚠ No log shipping activity found"
+	@echo ""
+	@echo "5. Checking Node Exporter metrics..."
+	@curl -s http://localhost:9100/metrics 2>/dev/null | head -5 && echo "  ✓ Node Exporter responding" || echo "  ⚠ Node Exporter not responding"
 	@echo ""
 	@echo "✓ Validation complete. See above for any warnings."
 

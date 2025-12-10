@@ -138,12 +138,32 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Prepare test environment
+      run: |
+        # Create temporary NVMe-like directories for CI testing
+        mkdir -p /tmp/ci-nvme-netsec/suricata/logs
+        mkdir -p /tmp/ci-nvme-netsec/suricata/rules
+        mkdir -p /tmp/ci-nvme-netsec/promtail
+        
+        # Set permissions (Suricata runs as UID 1000)
+        chmod -R 777 /tmp/ci-nvme-netsec
+        
+        echo "✓ Test directories created"
+
     - name: Create .env file for testing
       run: |
         cat > .env << EOF
-        # CI Test Environment
-        MONITOR_IF=eth0
+        # CI Test Environment - Updated for new profile names
+        NETSEC_INTERFACE=eth0
+        NVME_BASE_PATH=/tmp/ci-nvme-netsec
+        ORION_NODE_ROLE=netsec
+        ORION_NODE_NAME=ci-test-node
+        HOSTNAME=ci-test
         LOKI_URL=http://localhost:3100
+        NODE_EXPORTER_PORT=9100
+        EVEBOX_PORT=5636
+        
+        # AI service settings (for legacy profile tests)
         SOAR_DRY_RUN=1
         SOAR_POLL_INTERVAL=60
         SOAR_ALLOW_EMPTY_PLAYBOOKS=1
@@ -153,11 +173,14 @@ jobs:
         API_PORT=8000
         LOG_LEVEL=INFO
         EOF
+        
+        echo "✓ .env file created"
+        cat .env
 
     - name: Start core services
       run: |
-        echo "Starting core NSM services..."
-        docker compose --profile netsec-core up -d
+        echo "Starting core NSM services with netsec-minimal profile..."
+        docker compose --profile netsec-minimal up -d
         echo "Waiting for services to initialize..."
         sleep 30
 
@@ -166,12 +189,12 @@ jobs:
         echo "Checking service status..."
         docker compose ps
 
-        # Check if containers are running
+        # Check if containers are running (updated for new container names)
         echo "Verifying containers are running..."
-        docker ps --filter "name=orion-" --format "table {{.Names}}\t{{.Status}}"
+        docker ps --filter "name=orion-netsec-" --format "table {{.Names}}\t{{.Status}}"
 
-        # Count running orion containers
-        RUNNING=$(docker ps --filter "name=orion-" --filter "status=running" -q | wc -l)
+        # Count running orion-netsec containers
+        RUNNING=$(docker ps --filter "name=orion-netsec-" --filter "status=running" -q | wc -l)
         echo "Running containers: $RUNNING"
 
         if [ "$RUNNING" -lt 1 ]; then
@@ -184,15 +207,22 @@ jobs:
 
     - name: Verify Suricata
       run: |
-        echo "Checking Suricata..."
+        echo "Checking Suricata (updated container name)..."
         # Give Suricata time to start
         sleep 10
-        docker logs orion-suricata || true
+        docker logs orion-netsec-suricata || true
         echo "✓ Suricata check complete"
+        
+    - name: Verify log files created
+      run: |
+        echo "Checking if Suricata created log files..."
+        ls -la /tmp/ci-nvme-netsec/suricata/logs/ || echo "No logs yet (expected in CI)"
+        echo "✓ Log directory check complete"
 
     - name: Cleanup
       if: always()
       run: |
         echo "Cleaning up test environment..."
-        docker compose --profile netsec-core down -v
+        docker compose --profile netsec-minimal down -v
+        rm -rf /tmp/ci-nvme-netsec
         echo "✓ Cleanup complete"
