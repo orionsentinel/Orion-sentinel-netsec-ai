@@ -1,0 +1,201 @@
+# Promtail Configuration for Orion Sentinel NetSec Pi
+# Ships logs from Suricata to Loki (CoreSrv or local)
+#
+# Environment variables (set in docker-compose.yml):
+#   LOKI_URL - Loki push endpoint
+#   ORION_NODE_ROLE - Node role (e.g., "netsec")
+#   ORION_NODE_NAME - Unique node name (e.g., "netsec-pi-01")
+#   HOSTNAME - System hostname
+#
+# Label conventions for Orion Sentinel ecosystem:
+#   orion_node_role - Role in Orion (netsec, coresrv, ai, dns)
+#   orion_node_name - Unique identifier for this specific node
+#   app - Application generating logs (suricata, promtail, etc.)
+#   stream - Log stream type (eve-json, fast, stats, etc.)
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: info
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  # LOKI_URL is expanded from environment variable
+  # Production (SPoG): http://192.168.8.XXX:3100/loki/api/v1/push
+  # Dev/lab: http://loki:3100/loki/api/v1/push
+  - url: ${LOKI_URL}/loki/api/v1/push
+    # Optional: Add authentication if CoreSrv Loki requires it
+    # basic_auth:
+    #   username: ${LOKI_USERNAME}
+    #   password: ${LOKI_PASSWORD}
+
+scrape_configs:
+  # ============================================================================
+  # Suricata EVE JSON - Primary security events stream
+  # ============================================================================
+  - job_name: suricata-eve
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          # Orion ecosystem labels
+          orion_node_role: ${ORION_NODE_ROLE}
+          orion_node_name: ${ORION_NODE_NAME}
+          
+          # Service labels
+          job: netsec
+          app: suricata
+          stream: eve-json
+          
+          # Legacy labels (for backward compatibility)
+          service: suricata
+          host: ${HOSTNAME}
+          
+          # Log path
+          __path__: /var/log/suricata/eve.json
+    
+    pipeline_stages:
+      # Parse Suricata EVE JSON
+      - json:
+          expressions:
+            event_type: event_type
+            timestamp: timestamp
+            alert_severity: alert.severity
+            alert_signature: alert.signature
+            alert_category: alert.category
+            src_ip: src_ip
+            dest_ip: dest_ip
+            proto: proto
+      
+      # Add event_type as a label for filtering
+      # Examples: alert, flow, dns, http, tls, fileinfo
+      - labels:
+          event_type:
+      
+      # Parse Suricata timestamp
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+      
+      # Keep full JSON in output
+      - output:
+          source: message
+
+  # ============================================================================
+  # Suricata Fast Log - Alert summaries (optional)
+  # ============================================================================
+  - job_name: suricata-fast
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          orion_node_role: ${ORION_NODE_ROLE}
+          orion_node_name: ${ORION_NODE_NAME}
+          job: netsec
+          app: suricata
+          stream: fast
+          service: suricata
+          host: ${HOSTNAME}
+          __path__: /var/log/suricata/fast.log
+    
+    pipeline_stages:
+      # Extract alert signature and priority
+      - regex:
+          expression: '^\S+ \S+ \[(?P<priority>\d+):(?P<sid>\d+):\d+\] (?P<signature>.*?) \[Classification:'
+      
+      - labels:
+          priority:
+
+  # ============================================================================
+  # Suricata Stats - Performance metrics (optional)
+  # ============================================================================
+  - job_name: suricata-stats
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          orion_node_role: ${ORION_NODE_ROLE}
+          orion_node_name: ${ORION_NODE_NAME}
+          job: netsec
+          app: suricata
+          stream: stats
+          service: suricata
+          host: ${HOSTNAME}
+          __path__: /var/log/suricata/stats.log
+    
+    pipeline_stages:
+      # Parse stats log timestamp
+      - regex:
+          expression: '^(?P<timestamp>\S+ \S+) -'
+      
+      - timestamp:
+          source: timestamp
+          format: '2006-01-02 15:04:05'
+
+  # ============================================================================
+  # Suricata Application Log - Errors and warnings (optional)
+  # ============================================================================
+  - job_name: suricata-app
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          orion_node_role: ${ORION_NODE_ROLE}
+          orion_node_name: ${ORION_NODE_NAME}
+          job: netsec
+          app: suricata
+          stream: app-log
+          service: suricata
+          host: ${HOSTNAME}
+          __path__: /var/log/suricata/suricata.log
+    
+    pipeline_stages:
+      # Extract log level (Error, Warning, Info, etc.)
+      - regex:
+          expression: '^.* - <(?P<level>\w+)> --'
+      
+      - labels:
+          level:
+
+  # ============================================================================
+  # Host System Logs (optional - uncomment to enable)
+  # ============================================================================
+  # Uncomment this section to ship host system logs to Loki
+  # Requires bind-mounting /var/log from host in docker-compose.yml
+  
+  # - job_name: syslog
+  #   static_configs:
+  #     - targets:
+  #         - localhost
+  #       labels:
+  #         orion_node_role: ${ORION_NODE_ROLE}
+  #         orion_node_name: ${ORION_NODE_NAME}
+  #         job: system
+  #         app: syslog
+  #         host: ${HOSTNAME}
+  #         __path__: /host/logs/syslog
+  #   
+  #   pipeline_stages:
+  #     - regex:
+  #         expression: '^(?P<timestamp>\S+ \S+ \S+) (?P<hostname>\S+) (?P<process>\S+?)(\[(?P<pid>\d+)\])?: (?P<message>.*)$'
+  #     
+  #     - labels:
+  #         process:
+  #     
+  #     - timestamp:
+  #         source: timestamp
+  #         format: 'Jan _2 15:04:05'
+
+  # - job_name: auth
+  #   static_configs:
+  #     - targets:
+  #         - localhost
+  #       labels:
+  #         orion_node_role: ${ORION_NODE_ROLE}
+  #         orion_node_name: ${ORION_NODE_NAME}
+  #         job: system
+  #         app: auth
+  #         host: ${HOSTNAME}
+  #         __path__: /host/logs/auth.log
