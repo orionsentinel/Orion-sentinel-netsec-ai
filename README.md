@@ -172,7 +172,7 @@ docker logs orion-netsec-promtail | grep "POST"
 **Generate test alert:**
 
 ```bash
-curl http://testmyids.com
+curl https://testmyids.com
 docker exec orion-netsec-suricata tail /var/log/suricata/eve.json | jq 'select(.event_type=="alert")'
 ```
 
@@ -705,7 +705,7 @@ make test
 5. **Generate test alert**:
    ```bash
    # From another device
-   curl http://testmyids.com
+   curl https://testmyids.com
    
    # Check for alert
    docker exec orion-suricata tail /var/log/suricata/eve.json | jq 'select(.event_type=="alert")'

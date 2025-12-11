@@ -603,7 +603,7 @@ ls -la /mnt/orion-nvme-netsec/suricata/logs/eve.json
 docker exec orion-netsec-suricata tail -5 /var/log/suricata/eve.json
 
 # Generate a test alert (from another device or the Pi)
-curl http://testmyids.com
+curl https://testmyids.com
 
 # Verify the test alert appears
 docker exec orion-netsec-suricata tail /var/log/suricata/eve.json | jq 'select(.event_type=="alert")'

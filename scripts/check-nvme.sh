@@ -86,25 +86,31 @@ check_is_mounted() {
 check_disk_space() {
     # Get disk usage percentage (without % sign)
     usage_pct=$(df -h "$NVME_MOUNT_POINT" | awk 'NR==2 {print $5}' | sed 's/%//')
-    
+
     # Get human-readable sizes
     total_size=$(df -h "$NVME_MOUNT_POINT" | awk 'NR==2 {print $2}')
     used_size=$(df -h "$NVME_MOUNT_POINT" | awk 'NR==2 {print $3}')
     avail_size=$(df -h "$NVME_MOUNT_POINT" | awk 'NR==2 {print $4}')
-    
+
     # Get available space in bytes and convert to GB
+    # Use awk for more accurate calculation (handles values < 1GB)
     avail_bytes=$(df -B1 "$NVME_MOUNT_POINT" | awk 'NR==2 {print $4}')
-    avail_gb=$((avail_bytes / 1024 / 1024 / 1024))
-    
+    avail_gb=$(awk "BEGIN {printf \"%.1f\", $avail_bytes / 1024 / 1024 / 1024}")
+    avail_gb_int=${avail_gb%.*}  # Integer part for comparison
+    # Handle case where value is less than 1GB
+    if [ -z "$avail_gb_int" ] || [ "$avail_gb_int" = "0" ]; then
+        avail_gb_int=0
+    fi
+
     log_info "Disk usage: $used_size / $total_size ($usage_pct% used, $avail_size available)"
-    
+
     # Check against MIN_FREE_GB threshold first
-    if [ "$avail_gb" -lt "$MIN_FREE_GB" ]; then
+    if [ "$avail_gb_int" -lt "$MIN_FREE_GB" ]; then
         log_error "NVMe free space is LOW: ${avail_gb}GB available (minimum: ${MIN_FREE_GB}GB)"
         log_error "Free up space immediately or logs may fail to write"
         return 1
     fi
-    
+
     # Check against percentage thresholds
     if [ "$usage_pct" -ge "$CRITICAL_THRESHOLD_PCT" ]; then
         log_error "NVMe disk usage is CRITICAL: ${usage_pct}% (threshold: ${CRITICAL_THRESHOLD_PCT}%)"
