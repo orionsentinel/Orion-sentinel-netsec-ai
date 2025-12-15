@@ -110,7 +110,8 @@ show_interface_status() {
     if command -v ethtool &>/dev/null; then
         echo ""
         log_info "Offload settings:"
-        ethtool -k "$NETSEC_INTERFACE" 2>/dev/null | grep -E 'generic-segmentation|tcp-segmentation|generic-receive|large-receive' || true
+        # Show relevant offload features (gso, tso, gro, lro)
+        ethtool -k "$NETSEC_INTERFACE" 2>/dev/null | grep -E '(gso|tso|gro|lro):' || true
     fi
 }
 

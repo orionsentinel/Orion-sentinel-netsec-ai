@@ -144,7 +144,7 @@ config classification: web-application-attack,Web Application Attack,1
 config classification: misc-activity,Misc activity,3
 config classification: misc-attack,Misc Attack,2
 config classification: icmp-event,Generic ICMP event,3
-config classification: kickass-porn,SCORE! Get the lotion!,1
+config classification: inappropriate-content,Inappropriate Content was Detected,1
 config classification: policy-violation,Potential Corporate Privacy Violation,1
 config classification: default-login-attempt,Attempt to Login By a Default Username and Password,2
 config classification: sdf,Sensitive Data,2

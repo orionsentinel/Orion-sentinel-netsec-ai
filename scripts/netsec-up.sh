@@ -176,7 +176,7 @@ show_status() {
     
     echo ""
     log_info "Recent Suricata logs:"
-    docker logs --tail 15 orion-netsec-suricata 2>&1 | tail -10 || true
+    docker logs --tail 10 orion-netsec-suricata 2>&1 || true
     
     echo ""
     log_info "Checking for eve.json..."

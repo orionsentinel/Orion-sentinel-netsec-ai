@@ -87,12 +87,17 @@ check_config_test() {
     echo "Check 2: Suricata configuration test"
     echo "─────────────────────────────────────"
     
-    if docker exec "$CONTAINER_NAME" suricata -T -c /etc/suricata/suricata.yaml 2>&1 | tail -5; then
-        # Check exit code
-        if docker exec "$CONTAINER_NAME" suricata -T -c /etc/suricata/suricata.yaml &>/dev/null; then
-            log_pass "Configuration test passed"
-            return 0
-        fi
+    local output
+    local exit_code=0
+    
+    output=$(docker exec "$CONTAINER_NAME" suricata -T -c /etc/suricata/suricata.yaml 2>&1) || exit_code=$?
+    
+    # Show last 5 lines of output
+    echo "$output" | tail -5
+    
+    if [ $exit_code -eq 0 ]; then
+        log_pass "Configuration test passed"
+        return 0
     fi
     
     log_fail "Configuration test failed"
@@ -184,7 +189,11 @@ check_eve_json() {
     # Show last event
     echo ""
     log_info "Last event:"
-    tail -1 "$eve_path" 2>/dev/null | jq -c '.' 2>/dev/null || tail -1 "$eve_path" 2>/dev/null | head -c 200
+    local last_event
+    last_event=$(tail -1 "$eve_path" 2>/dev/null || echo "")
+    if [ -n "$last_event" ]; then
+        echo "$last_event" | jq -c '.' 2>/dev/null || echo "$last_event" | head -c 200
+    fi
     
     return 0
 }
