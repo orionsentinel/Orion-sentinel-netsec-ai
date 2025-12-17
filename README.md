@@ -243,9 +243,9 @@ The **netsec-tools** profile provides operator tools for network analysis and da
    sudo systemctl daemon-reload
    sudo systemctl enable orion-netsec-promisc.service
    sudo systemctl start orion-netsec-promisc.service
-   
+
    # Verify
-   ip link show eth0 | grep PROMISC
+   ip link show eth1 | grep PROMISC
    ```
 
 2. **Edit compose file** to configure your network:
@@ -284,12 +284,12 @@ The **netsec-tools** profile provides operator tools for network analysis and da
 
 **Verify mirror port is working:**
 ```bash
-sudo tcpdump -i eth0 -c 100 -nn
+sudo tcpdump -i eth1 -c 100 -nn
 ```
 
 **Monitor packet drops:**
 ```bash
-# Check ntopng web UI → Settings → Interfaces → eth0
+# Check ntopng web UI → Settings → Interfaces → eth1
 # Look for "Packet Drops" metric
 ```
 

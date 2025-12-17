@@ -23,16 +23,21 @@ sudo systemctl start orion-netsec-promisc.service
 sudo systemctl status orion-netsec-promisc.service
 
 # Verify promiscuous mode is enabled
-ip link show eth0 | grep PROMISC
+ip link show eth1 | grep PROMISC
 ```
 
 **Customization:**
-If your mirror port is NOT eth0, edit the service file:
+If your mirror port is NOT eth1, edit the service file:
 ```bash
 sudo nano /etc/systemd/system/orion-netsec-promisc.service
 ```
 
-Change `eth0` to your interface (e.g., `eth1`, `enx00e04c68xxxx`).
+Change `eth1` to your interface (e.g., `eth0`, `enx00e04c68xxxx`).
+
+**IMPORTANT:** If you change the interface, you must also update:
+- Main .env: NETSEC_INTERFACE
+- stacks/tools/ntopng/ntopng.conf: --interface line
+- host/systemd/orion-netsec-nic-tuning.service: interface name
 
 ### 2. orion-netsec-nic-tuning.service (Optional)
 **Purpose:** Disable NIC offload features to reduce packet drops  
@@ -63,7 +68,7 @@ sudo systemctl start orion-netsec-nic-tuning.service
 sudo systemctl status orion-netsec-nic-tuning.service
 
 # Verify offloads are disabled
-sudo ethtool -k eth0 | grep -E 'generic-receive-offload|large-receive-offload|generic-segmentation-offload|tcp-segmentation-offload'
+sudo ethtool -k eth1 | grep -E 'generic-receive-offload|large-receive-offload|generic-segmentation-offload|tcp-segmentation-offload'
 ```
 
 **Expected output:**
@@ -134,10 +139,11 @@ sudo journalctl -u orion-netsec-promisc.service -n 50
 **Common issues:**
 1. **Interface doesn't exist:**
    ```
-   Cannot find device "eth0"
+   Cannot find device "eth1"
    ```
-   
+
    **Solution:** Check interface name with `ip link show` and update service file.
+   Also verify NETSEC_INTERFACE in .env and --interface in ntopng.conf match.
 
 2. **Permission denied:**
    ```
@@ -162,10 +168,12 @@ Should output: `enabled`
 
 **Check if feature is supported:**
 ```bash
-sudo ethtool -k eth0
+sudo ethtool -k eth1
 ```
 
 Some offloads show `[fixed]` which means they cannot be changed by software. This is normal and not a problem.
+
+**Note:** If you changed the interface from eth1, update the service file to match.
 
 ## Uninstallation
 
@@ -188,8 +196,8 @@ sudo rm /etc/systemd/system/orion-netsec-nic-tuning.service
 sudo systemctl daemon-reload
 
 # Restore default NIC settings (if needed)
-sudo ip link set eth0 promisc off
-sudo ethtool -K eth0 gro on lro on gso on tso on
+sudo ip link set eth1 promisc off
+sudo ethtool -K eth1 gro on lro on gso on tso on
 ```
 
 ## Integration with Docker Compose

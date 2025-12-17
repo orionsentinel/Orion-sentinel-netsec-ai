@@ -348,7 +348,8 @@ services:
   # Default login disabled (--disable-login in ntopng.conf)
   #
   # Security: No authentication by default, LAN-only deployment
-  # For production, remove --disable-login from ntopng.conf and set password
+  # To enable authentication: Edit stacks/tools/ntopng/ntopng.conf,
+  # remove the --disable-login line, then restart: docker compose --profile netsec-tools restart ntopng
   ntopng:
     image: ntop/ntopng:stable
     container_name: orion-netsec-ntopng

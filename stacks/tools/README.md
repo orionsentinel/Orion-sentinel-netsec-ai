@@ -52,7 +52,7 @@ docker compose --profile netsec-tools down
 1. **Verify mirror port is working:**
    ```bash
    # Should see mirrored traffic from your switch
-   sudo tcpdump -i eth0 -c 100
+   sudo tcpdump -i eth1 -c 100
    ```
 
 2. **Enable promiscuous mode (required for ntopng):**
@@ -62,9 +62,9 @@ docker compose --profile netsec-tools down
    sudo systemctl daemon-reload
    sudo systemctl enable orion-netsec-promisc.service
    sudo systemctl start orion-netsec-promisc.service
-   
+
    # Verify
-   ip link show eth0 | grep PROMISC
+   ip link show eth1 | grep PROMISC
    ```
 
 3. **Access the tools:**
@@ -95,33 +95,54 @@ docker compose --profile netsec-tools restart ntopng
 ```
 
 ### Interface Configuration
-By default, ntopng monitors `eth0`. If your mirror port is on a different interface:
+By default, ntopng monitors `eth1` (matching NETSEC_INTERFACE default). If your mirror port is on a different interface:
 
-1. Edit `.env` file:
+**IMPORTANT:** You must update the interface in THREE places:
+
+1. **Main .env file:**
    ```bash
    sudo nano /home/runner/work/Orion-sentinel-netsec-ai/Orion-sentinel-netsec-ai/.env
    ```
-
-2. Update the interface:
+   
+   Update:
    ```bash
-   NETSEC_INTERFACE=eth1  # or your mirror interface
+   NETSEC_INTERFACE=eth0  # or your mirror interface
    ```
 
-3. Edit ntopng.conf:
+2. **ntopng.conf:**
    ```bash
    sudo nano /home/runner/work/Orion-sentinel-netsec-ai/Orion-sentinel-netsec-ai/stacks/tools/ntopng/ntopng.conf
    ```
    
    Change:
    ```conf
-   --interface=eth1  # match NETSEC_INTERFACE
+   --interface=eth0  # must match NETSEC_INTERFACE
    ```
 
-4. Restart services:
+3. **Systemd units (if using):**
    ```bash
-   docker compose --profile netsec-tools down
-   docker compose --profile netsec-minimal --profile netsec-tools up -d
+   sudo nano /etc/systemd/system/orion-netsec-promisc.service
+   sudo nano /etc/systemd/system/orion-netsec-nic-tuning.service
    ```
+   
+   Change `eth1` to your interface in both files.
+
+4. **Restart everything:**
+   ```bash
+   # Restart Docker services
+   docker compose down
+   docker compose --profile netsec-minimal --profile netsec-tools up -d
+   
+   # Restart systemd services (if using)
+   sudo systemctl restart orion-netsec-promisc.service
+   sudo systemctl restart orion-netsec-nic-tuning.service
+   ```
+
+**Why multiple places?**
+- Suricata uses NETSEC_INTERFACE from .env
+- ntopng reads its config from ntopng.conf (doesn't support env vars)
+- Systemd units run at host level (before Docker starts)
+- All must monitor the SAME interface for consistency
 
 ## 🔐 Security Considerations
 
@@ -175,19 +196,19 @@ For production deployments, enable ntopng authentication:
 ### Validate Mirror Port Traffic
 ```bash
 # Basic packet capture test
-sudo tcpdump -i eth0 -c 100 -nn
+sudo tcpdump -i eth1 -c 100 -nn
 
 # Look for traffic from multiple sources (confirms mirroring)
-sudo tcpdump -i eth0 -nn 'not host YOUR_PI_IP' | head -50
+sudo tcpdump -i eth1 -nn 'not host YOUR_PI_IP' | head -50
 
 # Check for dropped packets (kernel)
-sudo tcpdump -i eth0 -nn -vvv 2>&1 | grep dropped
+sudo tcpdump -i eth1 -nn -vvv 2>&1 | grep dropped
 ```
 
 ### Monitor ntopng Packet Drops
 Check ntopng web interface:
 1. Navigate to http://netsec-pi-ip:3000
-2. Go to **Settings → Interfaces → eth0**
+2. Go to **Settings → Interfaces → eth1**
 3. Look for "Packet Drops" metric
 4. If drops > 0, see "Performance Tuning" section below
 
@@ -217,16 +238,16 @@ If you see packet drops in ntopng or Suricata:
 
 2. **Verify offloads are disabled:**
    ```bash
-   sudo ethtool -k eth0 | grep -E 'rx-checksumming|tx-checksumming|scatter-gather|tcp-segmentation-offload|generic-receive-offload'
+   sudo ethtool -k eth1 | grep -E 'rx-checksumming|tx-checksumming|scatter-gather|tcp-segmentation-offload|generic-receive-offload'
    ```
 
 3. **Increase ring buffer size:**
    ```bash
    # Check current size
-   sudo ethtool -g eth0
-   
+   sudo ethtool -g eth1
+
    # Increase to maximum (if supported)
-   sudo ethtool -G eth0 rx 4096 tx 4096
+   sudo ethtool -G eth1 rx 4096 tx 4096
    ```
 
 ### Reduce ntopng CPU Usage
@@ -294,19 +315,19 @@ If ntopng uses too much CPU:
 **Solutions:**
 1. Verify promiscuous mode:
    ```bash
-   ip link show eth0 | grep PROMISC
+   ip link show eth1 | grep PROMISC
    ```
-   
+
    If not present:
    ```bash
-   sudo ip link set eth0 promisc on
+   sudo ip link set eth1 promisc on
    ```
 
 2. Check interface has traffic:
    ```bash
-   sudo tcpdump -i eth0 -c 10
+   sudo tcpdump -i eth1 -c 10
    ```
-   
+
    If no traffic, verify switch mirror port configuration.
 
 3. Check ntopng logs:

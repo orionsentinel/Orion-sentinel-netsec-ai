@@ -13,19 +13,20 @@ RemainAfterExit=yes
 # Trade-off: Slightly higher CPU usage on the Pi 5
 #
 # Only enable this if you experience packet drops in ntopng or Suricata
-# Check drops with: sudo ethtool -S eth0 | grep drop
+# Check drops with: sudo ethtool -S eth1 | grep drop
+# Default: eth1 (must match NETSEC_INTERFACE and ntopng.conf)
 
 # GRO (Generic Receive Offload) - can coalesce packets before capture
-ExecStart=/usr/sbin/ethtool -K eth0 gro off
+ExecStart=/usr/sbin/ethtool -K eth1 gro off
 
 # LRO (Large Receive Offload) - similar to GRO
-ExecStart=/usr/sbin/ethtool -K eth0 lro off
+ExecStart=/usr/sbin/ethtool -K eth1 lro off
 
 # GSO (Generic Segmentation Offload) - can affect transmitted packet visibility
-ExecStart=/usr/sbin/ethtool -K eth0 gso off
+ExecStart=/usr/sbin/ethtool -K eth1 gso off
 
 # TSO (TCP Segmentation Offload) - similar to GSO
-ExecStart=/usr/sbin/ethtool -K eth0 tso off
+ExecStart=/usr/sbin/ethtool -K eth1 tso off
 
 # Note: These settings are reset on interface down/up
 # This service ensures they persist across reboots

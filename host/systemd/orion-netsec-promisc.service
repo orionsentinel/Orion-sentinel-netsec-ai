@@ -10,11 +10,12 @@ RemainAfterExit=yes
 
 # Enable promiscuous mode on the interface
 # This is required for ntopng to capture all traffic on the mirror/SPAN port
-# Default: eth0 (change if your mirror port is on a different interface)
-ExecStart=/usr/sbin/ip link set eth0 promisc on
+# Default: eth1 (change if your mirror port is on a different interface)
+# IMPORTANT: Must match NETSEC_INTERFACE in .env and --interface in ntopng.conf
+ExecStart=/usr/sbin/ip link set eth1 promisc on
 
 # Disable promiscuous mode on service stop (optional)
-ExecStop=/usr/sbin/ip link set eth0 promisc off
+ExecStop=/usr/sbin/ip link set eth1 promisc off
 
 # Restart policy
 Restart=no
