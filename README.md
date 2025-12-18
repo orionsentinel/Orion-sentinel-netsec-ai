@@ -183,6 +183,7 @@ docker exec orion-netsec-suricata tail /var/log/suricata/eve.json | jq 'select(.
 | **netsec-minimal** | Suricata + Promtail + Node Exporter | Production sensor (default) |
 | **netsec-plus-evebox** | Minimal + EveBox UI | Production + local alert browsing |
 | **netsec-debug** | Debug toolbox (tcpdump, etc.) | Network troubleshooting |
+| **netsec-tools** | CyberChef + ntopng + Redis | Network analysis and traffic visibility |
 | **ai** (legacy) | AI services (SOAR, Inventory) | Legacy mode (not recommended) |
 
 **Start commands:**
@@ -197,7 +198,110 @@ docker compose --profile netsec-plus-evebox up -d
 # With debug tools
 docker compose --profile netsec-minimal --profile netsec-debug up -d
 docker exec -it orion-netsec-debug tcpdump -i eth0 -nn
+
+# With NetSec analysis tools (CyberChef + ntopng)
+docker compose --profile netsec-minimal --profile netsec-tools up -d
+# Access CyberChef: http://netsec-pi-ip:8000
+# Access ntopng: http://netsec-pi-ip:3000
 ```
+
+## 🛠️ NetSec Tools (Optional)
+
+The **netsec-tools** profile provides operator tools for network analysis and data manipulation.
+
+### Tools Included
+
+#### 1. CyberChef - Data Analysis & Transformation
+**Access:** http://netsec-pi-ip:8000 (LAN-only)
+
+**Use cases:**
+- Decode/encode data (Base64, hex, URL encoding)
+- Parse and analyze network payloads
+- Extract IOCs from logs and alerts
+- Convert between data formats
+- Decrypt/encrypt test data
+
+**No authentication required** - designed for trusted LAN use only.
+
+#### 2. ntopng - Network Traffic Analysis
+**Access:** http://netsec-pi-ip:3000 (LAN-only)
+
+**Features:**
+- Real-time traffic statistics and flows
+- Top talkers and protocols
+- Historical traffic analysis
+- Network security insights
+- Layer 7 protocol detection
+
+**Default:** No login required (can be enabled for production).
+
+### Quick Setup
+
+1. **Enable promiscuous mode** (required for ntopng):
+   ```bash
+   sudo cp host/systemd/orion-netsec-promisc.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable orion-netsec-promisc.service
+   sudo systemctl start orion-netsec-promisc.service
+
+   # Verify
+   ip link show eth1 | grep PROMISC
+   ```
+
+2. **Edit compose file** to configure your network:
+   ```bash
+   sudo nano compose.yml
+   ```
+
+3. **Configure local networks** in ntopng.conf:
+   ```bash
+   sudo nano stacks/tools/ntopng/ntopng.conf
+   ```
+   
+   Change to match your network:
+   ```conf
+   --local-networks "192.168.0.0/16"
+   ```
+
+4. **Start services:**
+   ```bash
+   docker compose --profile netsec-minimal --profile netsec-tools up -d
+   ```
+
+5. **Access the tools:**
+   - CyberChef: http://192.168.x.x:8000
+   - ntopng: http://192.168.x.x:3000
+
+### Security Warnings
+
+⚠️ **Critical Security Notes:**
+- These tools are **LAN-only** - DO NOT expose to internet
+- No authentication by default
+- Bind to 0.0.0.0 for LAN accessibility
+- For SSH tunnel access, change port bindings to 127.0.0.1 in compose.yml
+
+### Validation
+
+**Verify mirror port is working:**
+```bash
+sudo tcpdump -i eth1 -c 100 -nn
+```
+
+**Monitor packet drops:**
+```bash
+# Check ntopng web UI → Settings → Interfaces → eth1
+# Look for "Packet Drops" metric
+```
+
+**Performance tuning** (optional):
+```bash
+# Disable NIC offloads if you see packet drops
+sudo cp host/systemd/orion-netsec-nic-tuning.service /etc/systemd/system/
+sudo systemctl enable orion-netsec-nic-tuning.service
+sudo systemctl start orion-netsec-nic-tuning.service
+```
+
+📚 **Full documentation:** [stacks/tools/README.md](stacks/tools/README.md)
 
 ## 📚 Documentation
 
@@ -206,6 +310,8 @@ docker exec -it orion-netsec-debug tcpdump -i eth0 -nn
 | **[docs/architecture-netsec.md](docs/architecture-netsec.md)** | Detailed architecture, NVMe setup, data flows |
 | **[docs/grafana-dashboards.md](docs/grafana-dashboards.md)** | Grafana dashboards for CoreSrv |
 | **[docs/ai-node-future.md](docs/ai-node-future.md)** | Future AI node architecture (v2) |
+| **[stacks/tools/README.md](stacks/tools/README.md)** | NetSec tools (CyberChef + ntopng) setup and usage |
+| **[host/systemd/README.md](host/systemd/README.md)** | Systemd units for promiscuous mode and NIC tuning |
 | **[.env.example](.env.example)** | Environment variable reference |
 
 ### Legacy Documentation (AI Services)

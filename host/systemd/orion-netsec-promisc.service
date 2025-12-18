@@ -1,0 +1,24 @@
+[Unit]
+Description=Orion Sentinel NetSec - Enable Promiscuous Mode on Mirror Interface
+Documentation=https://github.com/orionsentinel/Orion-sentinel-netsec-ai
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+# Enable promiscuous mode on the interface
+# This is required for ntopng to capture all traffic on the mirror/SPAN port
+# Default: eth1 (change if your mirror port is on a different interface)
+# IMPORTANT: Must match NETSEC_INTERFACE in .env and --interface in ntopng.conf
+ExecStart=/usr/sbin/ip link set eth1 promisc on
+
+# Disable promiscuous mode on service stop (optional)
+ExecStop=/usr/sbin/ip link set eth1 promisc off
+
+# Restart policy
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

@@ -7,6 +7,7 @@
 #   - netsec-minimal: Core NSM sensor (Suricata + Promtail + Node Exporter)
 #   - netsec-plus-evebox: Core NSM + EveBox UI for local analysis
 #   - netsec-debug: Debug toolbox container (tcpdump, dig, curl, etc.)
+#   - netsec-tools: NetSec analysis tools (CyberChef + ntopng)
 #   - ai: AI detection services (SOAR, Inventory, Health Score, etc.) - legacy
 #
 # Production Deployment (recommended):
@@ -17,6 +18,9 @@
 #
 # With debug tools:
 #   docker compose --profile netsec-minimal --profile netsec-debug up -d
+#
+# With NetSec analysis tools (CyberChef, ntopng):
+#   docker compose --profile netsec-minimal --profile netsec-tools up -d
 #
 # Legacy full stack (AI services on NetSec Pi):
 #   docker compose --profile netsec-minimal --profile ai up -d
@@ -261,6 +265,128 @@ services:
         max-file: "2"
 
   # ============================================================================
+  # PROFILE: netsec-tools
+  # Network Security Analysis Tools (CyberChef + ntopng)
+  # ============================================================================
+  #
+  # NOTE: Port Conflict Warning
+  # CyberChef defaults to port 8000, which conflicts with the AI profile's API service.
+  # If you need to use both profiles together, change CYBERCHEF_PORT in .env:
+  #   CYBERCHEF_PORT=8080  # or another available port
+
+  # CyberChef - Data transformation and analysis tool
+  #
+  # Purpose:
+  # - Decode/encode data (Base64, hex, URL encoding, etc.)
+  # - Parse and analyze network payloads
+  # - Extract IOCs from logs and alerts
+  # - Convert between data formats
+  # - Decrypt/encrypt test data
+  #
+  # Access: http://netsec-pi-ip:8000 (LAN-only)
+  # For SSH tunnel: change ports binding to 127.0.0.1 in compose.yml
+  #
+  # Security: No authentication, LAN-only deployment recommended
+  # DO NOT expose to the internet
+  cyberchef:
+    image: mpepping/cyberchef:latest
+    container_name: orion-netsec-cyberchef
+    profiles: ["netsec-tools"]
+    ports:
+      - "${CYBERCHEF_PORT:-8000}:8000"
+    restart: unless-stopped
+    networks:
+      - orion-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    labels:
+      # Promtail labels for log shipping (if needed)
+      orion.node.role: "netsec"
+      orion.node.name: "${ORION_NODE_NAME:-netsec-pi-01}"
+      orion.service: "cyberchef"
+
+  # Redis - Required for ntopng
+  #
+  # Purpose: Caching and data operations for ntopng
+  # Note: ntopng uses host networking, so Redis must expose port on host
+  redis:
+    image: redis:7-alpine
+    container_name: orion-netsec-redis
+    profiles: ["netsec-tools"]
+    command: redis-server --appendonly no --save ""
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - orion-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    labels:
+      orion.node.role: "netsec"
+      orion.node.name: "${ORION_NODE_NAME:-netsec-pi-01}"
+      orion.service: "redis"
+
+  # ntopng - Network traffic analysis and flow monitoring
+  #
+  # Purpose:
+  # - Real-time traffic statistics and visualization
+  # - Top talkers, protocols, and bandwidth usage
+  # - Historical traffic analysis
+  # - Network security insights
+  # - Layer 7 protocol detection
+  #
+  # Why network_mode: host?
+  # - ntopng needs direct access to the physical interface for packet capture
+  # - AF_PACKET mode requires binding to a specific interface (eth1)
+  # - Bridge networking would only see container traffic, not mirrored traffic
+  # - Redis connection: Connects to Redis on localhost:6379 (Redis exposes port to host)
+  #
+  # Access: http://netsec-pi-ip:3000 (LAN-only)
+  # Default login disabled (--disable-login in ntopng.conf)
+  #
+  # Security: No authentication by default, LAN-only deployment
+  # To enable authentication: Edit stacks/tools/ntopng/ntopng.conf,
+  # remove the --disable-login line, then restart: docker compose --profile netsec-tools restart ntopng
+  ntopng:
+    image: ntop/ntopng:stable
+    container_name: orion-netsec-ntopng
+    profiles: ["netsec-tools"]
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    cap_drop:
+      - ALL
+    environment:
+      - TZ=${TZ:-Europe/Amsterdam}
+    volumes:
+      # ntopng configuration (with interface and local networks)
+      - ./stacks/tools/ntopng/ntopng.conf:/etc/ntopng/ntopng.conf:ro
+
+      # Data directory for historical statistics (NVMe-backed for performance)
+      - ${NVME_MOUNT:-/mnt/orion-nvme-netsec}/ntopng:/var/lib/ntopng
+    restart: unless-stopped
+    depends_on:
+      - redis
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      orion.node.role: "netsec"
+      orion.node.name: "${ORION_NODE_NAME:-netsec-pi-01}"
+      orion.service: "ntopng"
+
+  # ============================================================================
   # PROFILE: ai
   # AI Detection & Response Layer
   # ============================================================================
@@ -419,6 +545,10 @@ volumes:
   change-data:
     driver: local
   health-data:
+    driver: local
+
+  # NetSec Tools volumes (only used if 'netsec-tools' profile is enabled)
+  redis-data:
     driver: local
 
 # ============================================================================
