@@ -5,6 +5,8 @@
 #
 # This script:
 # 1. Runs suricata-update inside the container to fetch latest rules
+#    - Uses /etc/suricata/disable.conf to disable problematic rules
+#    - Writes rules to /var/lib/suricata/rules/suricata.rules
 # 2. Tests the configuration with suricata -T
 # 3. Restarts the container if the config test passes
 #
@@ -55,9 +57,16 @@ check_container() {
 # Run suricata-update
 run_suricata_update() {
     log_info "Running suricata-update..."
+    log_info "Using disable.conf to filter problematic rules (DNP3, Modbus, test rules)"
     echo ""
     
-    if docker exec -t "$CONTAINER_NAME" suricata-update; then
+    # Run suricata-update with disable.conf
+    # --disable-conf: Path to disable.conf file for filtering rules
+    # --output-dir: Write rules to /var/lib/suricata/rules
+    # This ensures suricata.rules is written to the correct location
+    if docker exec -t "$CONTAINER_NAME" suricata-update \
+        --disable-conf /etc/suricata/disable.conf \
+        --output-dir /var/lib/suricata/rules; then
         echo ""
         log_info "suricata-update completed successfully"
         return 0
@@ -134,6 +143,13 @@ show_rules_stats() {
         local line_count
         line_count=$(docker exec "$CONTAINER_NAME" wc -l /var/lib/suricata/rules/suricata.rules 2>/dev/null | awk '{print $1}' || echo "unknown")
         log_info "Rules file has $line_count lines"
+    fi
+    
+    # Check disable.conf is being used
+    if docker exec "$CONTAINER_NAME" test -f /etc/suricata/disable.conf 2>/dev/null; then
+        log_info "✓ disable.conf is mounted and available"
+    else
+        log_warn "⚠ disable.conf not found - some rules may cause parse errors"
     fi
 }
 
