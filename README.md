@@ -176,12 +176,31 @@ curl https://testmyids.com
 docker exec orion-netsec-suricata tail /var/log/suricata/eve.json | jq 'select(.event_type=="alert")'
 ```
 
+## 📡 Ports & Access
+
+| Service | Port | Profile | Description |
+|---------|------|---------|-------------|
+| **Node Exporter** | 19100 | netsec-minimal | System metrics for Prometheus |
+| **EveBox** | 5636 | netsec-plus-evebox | Suricata alert browser UI |
+| **cAdvisor** | 18080 | netsec-plus-evebox | Container resource metrics |
+| **CyberChef** | 8000 | netsec-tools | Data transformation tool |
+| **ntopng** | 3000 | netsec-tools | Network traffic analysis |
+
+**Access URLs (replace with your Pi IP):**
+- Node Exporter metrics: `http://netsec-pi-ip:19100/metrics`
+- EveBox UI: `http://netsec-pi-ip:5636`
+- cAdvisor UI: `http://netsec-pi-ip:18080`
+- CyberChef: `http://netsec-pi-ip:8000`
+- ntopng: `http://netsec-pi-ip:3000`
+
+**Note:** All ports are configurable via `.env` file. See `.env.example` for details.
+
 ## 🔧 Docker Compose Profiles
 
 | Profile | Services | Use Case |
 |---------|----------|----------|
 | **netsec-minimal** | Suricata + Promtail + Node Exporter | Production sensor (default) |
-| **netsec-plus-evebox** | Minimal + EveBox UI | Production + local alert browsing |
+| **netsec-plus-evebox** | Minimal + EveBox UI + cAdvisor | Production + local alert browsing |
 | **netsec-debug** | Debug toolbox (tcpdump, etc.) | Network troubleshooting |
 | **netsec-tools** | CyberChef + ntopng + Redis | Network analysis and traffic visibility |
 | **ai** (legacy) | AI services (SOAR, Inventory) | Legacy mode (not recommended) |
@@ -332,6 +351,7 @@ sudo systemctl start orion-netsec-nic-tuning.service
 sudo ufw allow from 192.168.0.0/16 to any port 22    # SSH from LAN
 sudo ufw allow from <coresrv-ip> to any port 9100    # Prometheus metrics
 sudo ufw allow from 192.168.0.0/16 to any port 5636  # EveBox (optional)
+sudo ufw allow from 192.168.0.0/16 to any port 18080 # cAdvisor (optional)
 sudo ufw enable
 ```
 
@@ -351,14 +371,41 @@ docker logs orion-netsec-suricata | grep "Using AF_PACKET"
 sudo tcpdump -i eth0 -c 10  # Should see mirrored traffic
 ```
 
-**Promtail not shipping:**
-```bash
-# Check Loki connectivity
-docker exec orion-netsec-promtail wget -O- http://192.168.x.x:3100/ready
+**Promtail not shipping logs / "connection refused":**
 
-# Check logs
-docker logs orion-netsec-promtail | grep -i error
+This typically means Promtail cannot reach Loki. Common causes and solutions:
+
+```bash
+# 1. Check Loki URL configuration
+grep LOKI_URL .env
+# Should show: LOKI_URL=http://<coresrv-ip>:3100
+
+# 2. Verify Loki is running on CoreSrv
+curl -s http://<coresrv-ip>:3100/ready
+# Should return: ready
+
+# 3. Check Promtail logs for errors
+docker logs orion-netsec-promtail 2>&1 | grep -i error
+
+# 4. Test network connectivity from Promtail container
+docker exec orion-netsec-promtail wget -O- http://<coresrv-ip>:3100/ready
+
+# 5. If still failing, check:
+#    - CoreSrv Loki is running: docker ps | grep loki (on CoreSrv)
+#    - Port 3100 is published: docker port <loki-container> (on CoreSrv)
+#    - Firewall allows traffic: sudo ufw status (on CoreSrv)
+#    - Network route exists: ping <coresrv-ip> (from NetSec Pi)
 ```
+
+**Common Promtail/Loki issues:**
+
+| Symptom | Cause | Solution |
+|---------|-------|----------|
+| "connection refused" | Loki not running | Start Loki on CoreSrv |
+| "connection refused" | Wrong LOKI_URL | Check IP address in `.env` |
+| "connection refused" | Port not published | Expose port 3100 on CoreSrv |
+| "no route to host" | Network issue | Check routing/firewall |
+| "context deadline exceeded" | Loki overloaded | Check CoreSrv resources |
 
 **NVMe issues:**
 ```bash
@@ -370,6 +417,35 @@ ls -la /mnt/orion-nvme-netsec/suricata/
 
 # Run health check
 ./scripts/check-nvme.sh
+```
+
+**EveBox - Getting initial admin credentials:**
+
+EveBox may generate random admin credentials on first start. To retrieve them:
+```bash
+# Check EveBox logs for initial credentials
+docker logs orion-netsec-evebox 2>&1 | grep -i "admin\|password\|credentials"
+
+# Alternative: Run EveBox without authentication (LAN-only)
+# Add this environment variable in compose.yml:
+#   - EVEBOX_AUTHENTICATION=false
+```
+
+**Suricata rule parse errors:**
+
+If you see "protocol disabled" errors when running `suricata -T`:
+```bash
+# Ensure disable.conf is mounted
+docker exec orion-netsec-suricata ls -la /etc/suricata/disable.conf
+
+# Run suricata-update with disable.conf
+./scripts/suricata-update.sh
+
+# This disables:
+# - DNP3 rules (sids 2270000-2270004) - protocol parser disabled
+# - Modbus rules (sids 2250001-2250009) - protocol parser disabled
+# - Test rule (sid 1000001) - local test rule
+# - Regex pattern: .*ORION TEST.* - development test rules
 ```
 
 ---

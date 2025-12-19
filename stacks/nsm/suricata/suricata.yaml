@@ -125,23 +125,36 @@ logging:
         filename: suricata.log
 
 # AF_PACKET capture settings (optimized for ARM/Pi 5)
+# NOTE: Safe Pi defaults - no cluster-id/cluster-type to avoid "fanout not supported" errors
 af-packet:
   - interface: default  # Will be overridden by command-line --af-packet option
-    cluster-id: 99
-    cluster-type: cluster_flow
+    # NOTE: cluster-id and cluster-type are NOT enabled by default
+    # Enabling these may cause "fanout not supported" errors on some systems
+    # cluster-id: 99
+    # cluster-type: cluster_flow
     defrag: yes
     use-mmap: yes
-    mmap-locked: yes
+    mmap-locked: no       # Disabled for Pi (may require elevated privileges)
     tpacket-v3: yes
-    ring-size: 2048      # Reduced for Pi (default: 10000+)
-    block-size: 32768    # Reduced for Pi
+    ring-size: 1024       # Safe Pi default (reduced from 2048)
+    block-size: 32768     # Reduced for Pi
     
-    # Buffer size (reduced for Pi)
-    buffer-size: 32mb
+    # Buffer size - MUST be integer in bytes (not "32mb")
+    # 32 MiB = 33554432 bytes
+    buffer-size: 33554432
+    
+    # Single thread for Pi (safe default)
+    threads: 1
     
     # Disable offloading (ensure we see all packets)
     disable-promisc: no
     checksum-checks: auto
+
+# Performance tuning for Pi 5
+# Limit CPU and memory usage
+max-pending-packets: 4096  # Safe Pi default (reduced from higher values)
+runmode: workers           # Worker threads
+autofp-scheduler: hash     # Hash-based load balancing
 
 # Threading configuration for Pi 5 (4 cores)
 threading:
@@ -155,15 +168,11 @@ threading:
         cpu: [ 2, 3 ]
   detect-thread-ratio: 1.0
 
-# Performance tuning for Pi 5
-# Limit CPU and memory usage
-max-pending-packets: 1024  # Reduced from default (65000+)
-runmode: workers           # Worker threads
-autofp-scheduler: hash     # Hash-based load balancing
-
 # Detection engine
+# NOTE: "low" profile recommended for Pi to reduce CPU usage
+# For 8GB Pi: Can try "medium" if CPU usage is acceptable
 detect:
-  profile: medium         # medium profile for Pi (low/medium/high)
+  profile: low            # low profile for Pi (low/medium/high)
   custom-values:
     toclient-groups: 3
     toserver-groups: 3
@@ -176,6 +185,8 @@ engine-analysis:
   rules: yes
 
 # Stream engine (TCP reassembly)
+# Recommended for 8GB Pi: These values provide good balance
+# If memory is tight, reduce stream.memcap to 128mb and reassembly.memcap to 256mb
 stream:
   memcap: 256mb          # Reduced for Pi (default: 64mb per thread)
   checksum-validation: yes
@@ -188,6 +199,8 @@ stream:
     randomize-chunk-size: yes
 
 # Flow engine
+# Recommended for 8GB Pi: 256mb is a good default
+# Can increase to 512mb if tracking many connections
 flow:
   memcap: 256mb          # Reduced for Pi
   hash-size: 65536
@@ -204,6 +217,9 @@ defrag:
   timeout: 60
 
 # App layer protocols
+# NOTE: DNP3 and Modbus are disabled by default to prevent rule parse errors
+# when those protocols' rules are enabled but the protocol parser is disabled.
+# Enable them if you need ICS/SCADA protocol support.
 app-layer:
   protocols:
     tls:
@@ -244,6 +260,14 @@ app-layer:
       enabled: yes
       detection-ports:
         dp: 139, 445
+    
+    # ICS/SCADA protocols - disabled by default
+    # Enable if monitoring industrial control networks
+    dnp3:
+      enabled: no
+    
+    modbus:
+      enabled: no
 
 # Rule files
 default-rule-path: /var/lib/suricata/rules
@@ -261,10 +285,12 @@ threshold-file: /etc/suricata/threshold.config
 # Host mode: Passive IDS (no packet modification)
 host-mode: sniffer-only
 
-# Packet acquisition
+# Packet acquisition - PCAP fallback (AF_PACKET is preferred)
 pcap:
   - interface: default
-    buffer-size: 32mb    # Reduced for Pi
+    # Buffer size - MUST be integer in bytes (not "32mb")
+    # 32 MiB = 33554432 bytes
+    buffer-size: 33554432
     checksum-checks: auto
 
 # Profiling (disabled for production)

@@ -48,6 +48,7 @@ scrape_configs:
           job: netsec
           app: suricata
           stream: eve-json
+          stack: orion-netsec
           
           # Legacy labels (for backward compatibility)
           service: suricata
@@ -96,6 +97,7 @@ scrape_configs:
           job: netsec
           app: suricata
           stream: fast
+          stack: orion-netsec
           service: suricata
           host: ${HOSTNAME}
           __path__: /var/log/suricata/fast.log
@@ -121,6 +123,7 @@ scrape_configs:
           job: netsec
           app: suricata
           stream: stats
+          stack: orion-netsec
           service: suricata
           host: ${HOSTNAME}
           __path__: /var/log/suricata/stats.log
@@ -147,6 +150,7 @@ scrape_configs:
           job: netsec
           app: suricata
           stream: app-log
+          stack: orion-netsec
           service: suricata
           host: ${HOSTNAME}
           __path__: /var/log/suricata/suricata.log
